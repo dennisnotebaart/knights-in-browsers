@@ -15,7 +15,9 @@ import type { GameState } from './game/state';
 import { TICKS_PER_SEC } from './game/defs';
 
 const $ = (id: string) => document.getElementById(id)!;
-const SAVE_KEY = 'kib-save-v1', PROGRESS_KEY = 'kib-progress-v1';
+const SAVE_KEY = 'kib-save-v1', AUTO_KEY = 'kib-autosave-v1', PROGRESS_KEY = 'kib-progress-v1';
+const AUTOSAVE_MS = 30000;
+let lastAutosave = 0;
 
 let sprites: Sprites;
 let assets: Assets;
@@ -38,6 +40,7 @@ function show(id: string) {
   for (const s of document.querySelectorAll('.screen')) s.classList.add('hidden');
   $('game').classList.add('hidden');
   $(id).classList.remove('hidden');
+  if (id === 'menu') refreshContinue();
 }
 
 // ---------- progress ----------
@@ -64,7 +67,7 @@ function startMission(m: Mission, state?: GameState) {
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
   if (!renderer) renderer = new Renderer(canvas, game, sprites, assets); else renderer.setGame(game);
-  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
+  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { autosave(); stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
   ui.setSpeed(1); ui.setTab('build');
   outcomeShown = false; outcomeFrames = 0;
   show('game');
@@ -100,6 +103,7 @@ function frame(t: number) {
     if (n >= 40) acc = 0;
   }
   renderer.render(ui.sel, ui.place, ui.showTerritory);
+  if (game.s.outcome === 'playing' && t - lastAutosave > AUTOSAVE_MS) autosave();
   if (game.s.outcome !== 'playing' && !outcomeShown && ++outcomeFrames > 75) { outcomeShown = true; showOutcome(); }
 }
 
@@ -114,6 +118,7 @@ function showOutcome() {
     ? `${mission.name} is complete after ${min} minutes. Enemies slain: ${game.s.stats.killed}. Our losses: ${game.s.stats.lost}.`
     : `The settlement has fallen after ${min} minutes. Enemies slain: ${game.s.stats.killed}. Our losses: ${game.s.stats.lost}.`;
   if (won && mission.campaign) markDone(mission.id);
+  try { localStorage.removeItem(AUTO_KEY); } catch { /* ignore */ }
   const idx = MISSIONS.indexOf(mission);
   const next = won && mission.campaign && idx + 1 < MISSIONS.length && MISSIONS[idx + 1].campaign ? MISSIONS[idx + 1] : null;
   $('btn-next').classList.toggle('hidden', !next);
@@ -136,6 +141,31 @@ function deserialize(json: string): GameState {
   map.terrain.set(o.map.terrain); map.obj.set(o.map.obj); map.data.set(o.map.data); map.house.set(o.map.house); map.owner.set(o.map.owner);
   return { ...o, map };
 }
+function autosave() {
+  if (!game || game.s.outcome !== 'playing') return;
+  lastAutosave = performance.now();
+  try {
+    localStorage.setItem(AUTO_KEY, serialize(game.s));
+    const n = $('autosave-note'); n.textContent = 'Autosaved'; n.classList.remove('hidden'); setTimeout(() => n.classList.add('hidden'), 1800);
+  } catch (e) { console.warn('autosave failed', e); }
+}
+function autosaveInfo(): { mission: string; minutes: number } | null {
+  try {
+    const json = localStorage.getItem(AUTO_KEY); if (!json) return null;
+    const o = JSON.parse(json); const m = missionById(o.missionId);
+    return { mission: m ? m.name : o.missionId, minutes: Math.floor((o.tick ?? 0) / 600) };
+  } catch { return null; }
+}
+function continueGame() {
+  const json = localStorage.getItem(AUTO_KEY);
+  if (!json) return false;
+  try { const s = deserialize(json); startMission(missionById(s.missionId), s); lastAutosave = performance.now(); game?.msg('Resumed from autosave.', 'good'); return true; }
+  catch (e) { console.error(e); return false; }
+}
+// keep progress when the tab is closed, refreshed or hidden
+window.addEventListener('pagehide', () => autosave());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') autosave(); });
+
 function saveGame() {
   if (!game) return;
   try { localStorage.setItem(SAVE_KEY, serialize(game.s)); game.msg('Game saved.', 'good'); } catch (e) { game.msg('Could not save: ' + (e as Error).message, 'warn'); }
@@ -147,6 +177,7 @@ function loadGame() {
     const s = deserialize(json);
     const m = missionById(s.missionId);
     startMission(m, s);
+    lastAutosave = performance.now();
     game?.msg('Game loaded.', 'good');
     return true;
   } catch (e) { console.error(e); game?.msg('Could not load the saved game.', 'warn'); return false; }
@@ -179,6 +210,13 @@ function showBriefing(m: Mission) {
   show('briefing');
 }
 
+function refreshContinue() {
+  const b = $('btn-continue') as HTMLButtonElement;
+  const info = autosaveInfo();
+  b.disabled = !info;
+  b.textContent = info ? `Continue: ${info.mission} (${info.minutes} min)` : 'Continue';
+}
+$('btn-continue').onclick = () => { audio.init(); if (!continueGame()) alert('No autosave found.'); };
 $('btn-campaign').onclick = () => { audio.init(); showMissions(); };
 $('btn-skirmish').onclick = () => { audio.init(); showBriefing(MISSIONS.find(m => !m.campaign)!); };
 $('btn-load').onclick = () => { audio.init(); if (!loadGame()) alert('No saved game found.'); };
@@ -188,7 +226,7 @@ for (const b of document.querySelectorAll('.back') as NodeListOf<HTMLElement>) b
 // dev helpers
 (window as any).__start = (id: string) => { audio.init(); startMission(missionById(id)); };
 (window as any).__missions = MISSIONS;
-(window as any).__dev = { findPath, TILE };
+(window as any).__dev = { findPath, TILE, autosave, continueGame };
 
 async function boot() {
   const bar = $('loading-bar');
