@@ -63,6 +63,7 @@ function startMission(m: Mission, state?: GameState) {
   const s = state ?? createState(m);
   game = new Game(s);
   if (!state) { m.setup(game); game.rebuildIndexes(); game.dirtyTiles.length = 0; for (const u of game.s.units) u.condition = u.task.kind === 'soldier' ? 0.85 + Math.random() * 0.15 : 0.6 + Math.random() * 0.4; }
+  game.updateFog();
   game.onSound = n => audio.play(n);
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
@@ -132,13 +133,14 @@ function showOutcome() {
 // ---------- save / load ----------
 function serialize(s: GameState): string {
   const m = s.map;
-  const map = { w: m.w, h: m.h, terrain: Array.from(m.terrain), obj: Array.from(m.obj), data: Array.from(m.data), house: Array.from(m.house), owner: Array.from(m.owner) };
+  const map = { w: m.w, h: m.h, terrain: Array.from(m.terrain), obj: Array.from(m.obj), data: Array.from(m.data), house: Array.from(m.house), owner: Array.from(m.owner), fog: Array.from(m.fog) };
   return JSON.stringify({ ...s, map, groups: s.groups.map(g => ({ ...g, facing: (g as any).facing })) });
 }
 function deserialize(json: string): GameState {
   const o = JSON.parse(json);
   const map: MapData = createMap(o.map.w, o.map.h);
   map.terrain.set(o.map.terrain); map.obj.set(o.map.obj); map.data.set(o.map.data); map.house.set(o.map.house); map.owner.set(o.map.owner);
+  if (o.map.fog) map.fog.set(o.map.fog); else map.fog.fill(1); // saves from before fog of war
   return { ...o, map };
 }
 function autosave() {

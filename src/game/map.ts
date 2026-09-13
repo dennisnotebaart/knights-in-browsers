@@ -15,6 +15,7 @@ export interface MapData {
   data: Uint8Array;      // growth stage (trees / fields), ore amount (deposits), build progress (plans)
   house: Int16Array;     // house id occupying the tile or -1
   owner: Uint8Array;     // territory owner for tiles near houses (0 none)
+  fog: Uint8Array;       // 0 = unexplored, 1 = explored by the player
 }
 
 export function createMap(w: number, h: number): MapData {
@@ -25,6 +26,7 @@ export function createMap(w: number, h: number): MapData {
     data: new Uint8Array(w * h),
     house: new Int16Array(w * h).fill(-1),
     owner: new Uint8Array(w * h),
+    fog: new Uint8Array(w * h),
   };
 }
 

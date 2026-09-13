@@ -144,6 +144,7 @@ export class UI {
     const rect = this.r.canvas.getBoundingClientRect();
     const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
     const w = this.r.screenToWorld(sx, sy);
+    if (!this.r.explored(Math.floor(w.x), Math.floor(w.y))) { this.clearSelection(); return; }
     const u = this.unitAt(w.x, w.y, -1, false);
     if (u) { this.selectUnit(u); return; }
     const t = { x: Math.floor(w.x), y: Math.floor(w.y) };
@@ -156,8 +157,8 @@ export class UI {
     if (!this.sel.groups.length) return;
     const w = this.r.screenToWorld(sx, sy);
     const t = { x: Math.floor(w.x), y: Math.floor(w.y) };
-    const enemyU = this.unitAt(w.x, w.y, -1, false, true);
-    const h = this.houseAt(t.x, t.y);
+    const enemyU = this.r.explored(t.x, t.y) ? this.unitAt(w.x, w.y, -1, false, true) : null;
+    const h = this.r.explored(t.x, t.y) ? this.houseAt(t.x, t.y) : null;
     let k = 0;
     for (const gid of this.sel.groups) {
       const grp = this.g.group(gid); if (!grp) continue;
@@ -328,6 +329,7 @@ export class UI {
         <button data-act="save">Save game</button><button data-act="load">Load game</button>
         <button data-act="continue">Load autosave</button>
         <button data-act="territory">${this.showTerritory ? 'Hide' : 'Show'} territory</button>
+        <button data-act="fog">Fog of war: ${this.r.fogEnabled ? 'on' : 'off'}</button>
         <button data-act="sound">Sound: ${(window as any).__audioEnabled === false ? 'off' : 'on'}</button>
         <button data-act="music">Music: ${(window as any).__musicEnabled === false ? 'off' : 'on'}</button>
         <button data-act="quit">Quit to main menu</button></div>`;
@@ -347,6 +349,7 @@ export class UI {
       const a = b.dataset.act;
       if (a === 'save') this.onSave?.(); else if (a === 'load') this.onLoad?.(); else if (a === 'continue') { if (!(window as any).__dev.continueGame()) this.g.msg('No autosave found.', 'warn'); } else if (a === 'quit') this.onQuit?.();
       else if (a === 'territory') { this.showTerritory = !this.showTerritory; this.renderTab(); }
+      else if (a === 'fog') { this.r.fogEnabled = !this.r.fogEnabled; this.renderTab(); }
       else if (a === 'sound') { (window as any).__toggleAudio?.(); this.renderTab(); }
       else if (a === 'music') { (window as any).__toggleMusic?.(); this.renderTab(); }
       else if (a === 'demolish' && this.sel.house) { g.demolishHouse(this.sel.house); this.clearSelection(); }

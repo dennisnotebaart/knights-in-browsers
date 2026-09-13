@@ -31,7 +31,7 @@ deploys `main` to GitHub Pages (enable *Settings → Pages → Source: GitHub Ac
   pikemen, scouts and knights, equipped from recruits at the barracks. Groups with
   formations, halt/split/link, counters (pikes vs cavalry, cavalry vs archers), towers.
 - **Campaign**: six missions with briefings, scripted enemy attacks and fortified enemy towns,
-  plus a free-play map. Manual saves, an autosave every 30 seconds (also on refresh or tab close, resumed with Continue) and campaign progress are stored in the browser's localStorage.
+  plus a free-play map. Fog of war: the map starts black and stays revealed once your units or houses have seen it. Manual saves, an autosave every 30 seconds (also on refresh or tab close, resumed with Continue) and campaign progress are stored in the browser's localStorage.
 
 ## Controls
 
