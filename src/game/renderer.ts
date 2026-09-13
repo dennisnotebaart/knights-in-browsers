@@ -33,12 +33,17 @@ export class Renderer {
   dragRect: { x0: number; y0: number; x1: number; y1: number } | null = null;
   hoverTile = { x: -1, y: -1 };
   shade: Float32Array = new Float32Array(0);
+  fogCanvas: HTMLCanvasElement; fogCtx: CanvasRenderingContext2D;   // 1 px per tile, alpha = unexplored
+  fogSoft: HTMLCanvasElement; fogSoftCtx: CanvasRenderingContext2D; // blurred copy for soft edges
+  fogEnabled = true;
 
   constructor(public canvas: HTMLCanvasElement, public g: Game, public S: Sprites, public A: Assets) {
     this.ctx = canvas.getContext('2d')!;
     this.staticLayer = document.createElement('canvas');
     this.sctx = this.staticLayer.getContext('2d')!;
     [this.tmp, this.tctx] = mkCanvas(TILE, TILE);
+    [this.fogCanvas, this.fogCtx] = mkCanvas(1, 1);
+    [this.fogSoft, this.fogSoftCtx] = mkCanvas(1, 1);
     this.setGame(g);
   }
 
@@ -52,7 +57,30 @@ export class Renderer {
       this.shade[y * m.w + x] = n;
     }
     this.buildStatic();
+    const F = 3; // fog resolution: 3 px per tile
+    this.fogCanvas.width = m.w * F; this.fogCanvas.height = m.h * F;
+    this.fogSoft.width = m.w * F; this.fogSoft.height = m.h * F;
+    g.fogChanged = true;
+    this.rebuildFog();
   }
+
+  rebuildFog() {
+    const m = this.g.map, F = 3;
+    const ctx = this.fogCtx;
+    ctx.clearRect(0, 0, this.fogCanvas.width, this.fogCanvas.height);
+    ctx.fillStyle = '#05070a';
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) if (!m.fog[y * m.w + x]) ctx.fillRect(x * F, y * F, F, F);
+    const sc = this.fogSoftCtx;
+    sc.clearRect(0, 0, this.fogSoft.width, this.fogSoft.height);
+    sc.filter = 'blur(2px)';
+    sc.drawImage(this.fogCanvas, 0, 0);
+    sc.filter = 'none';
+    // a second, harder pass keeps the deep interior fully opaque
+    sc.globalAlpha = 0.85; sc.drawImage(this.fogCanvas, 0, 0); sc.globalAlpha = 1;
+    this.g.fogChanged = false;
+  }
+
+  explored(x: number, y: number) { return !this.fogEnabled || (inBounds(this.g.map, x, y) && this.g.map.fog[idx(this.g.map, x, y)] === 1); }
 
   vnoise(x: number, y: number, s: number) {
     const x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0;
@@ -234,19 +262,22 @@ export class Renderer {
     for (let y = Math.max(0, y0 - 1); y <= Math.min(m.h - 1, y1 + 2); y++) for (let x = x0 - 1; x <= x1 + 1; x++) {
       if (!inBounds(m, x, y)) continue;
       const i = idx(m, x, y);
-      if (m.obj[i] === Obj.Tree) list.push({ y: y + 0.95, draw: () => this.drawTree(x, y, m.data[i]) });
+      if (m.obj[i] === Obj.Tree && this.explored(x, y)) list.push({ y: y + 0.95, draw: () => this.drawTree(x, y, m.data[i]) });
     }
     for (const h of g.s.houses) {
       const d = HOUSE_DEFS[h.type];
       if (h.x + d.w < x0 - 1 || h.x > x1 + 1 || h.y + d.h < y0 - 2 || h.y > y1 + 3) continue;
+      if (!this.explored(h.x + (d.w >> 1), h.y + (d.h >> 1))) continue;
       list.push({ y: h.y + d.h - 0.6, draw: () => this.drawHouse(h) });
     }
     for (const u of g.s.units) {
       if (u.inHouse >= 0) continue;
       if (u.x < x0 - 1 || u.x > x1 + 1 || u.y < y0 - 1 || u.y > y1 + 1) continue;
+      if (!this.explored(Math.round(u.x), Math.round(u.y))) continue;
       list.push({ y: u.y + 0.5, draw: () => this.drawUnit(u, sel) });
     }
     for (const p of g.s.projectiles) {
+      if (!this.explored(Math.round(p.tx), Math.round(p.ty))) continue;
       const t = p.t / p.dur;
       const x = p.sx + (p.tx - p.sx) * t, y = p.sy + (p.ty - p.sy) * t - Math.sin(t * Math.PI) * (p.kind === 'stone' ? 2.2 : 1.2);
       list.push({ y: y + 2, draw: () => {
@@ -264,6 +295,13 @@ export class Renderer {
     } });
     list.sort((a, b) => a.y - b.y);
     for (const d of list) d.draw();
+    // fog of war
+    if (this.fogEnabled) {
+      if (g.fogChanged) this.rebuildFog();
+      const F = 3;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(this.fogSoft, x0 * F, y0 * F, (x1 - x0 + 1) * F, (y1 - y0 + 1) * F, x0 * TILE, y0 * TILE, (x1 - x0 + 1) * TILE, (y1 - y0 + 1) * TILE);
+    }
     // house ghost
     if (place.kind === 'house' && place.house && place.x >= 0) {
       const d = HOUSE_DEFS[place.house];
@@ -395,13 +433,14 @@ export class Renderer {
       else if (o === Obj.Coal) { r = 30; gg = 30; b = 30; } else if (o === Obj.Iron) { r = 170; gg = 100; b = 60; } else if (o === Obj.Gold) { r = 230; gg = 190; b = 50; }
       const h = m.house[i];
       if (h >= 0) { const hh = g.house(h); if (hh && hh.state !== 'destroyed') { const c = PLAYER_COLORS[hh.owner]; r = parseInt(c.slice(1, 3), 16); gg = parseInt(c.slice(3, 5), 16); b = parseInt(c.slice(5, 7), 16); } }
+      if (this.fogEnabled && !m.fog[i]) { r = 8; gg = 10; b = 14; }
       dat[i * 4] = r; dat[i * 4 + 1] = gg; dat[i * 4 + 2] = b; dat[i * 4 + 3] = 255;
     }
     const tmp = document.createElement('canvas'); tmp.width = m.w; tmp.height = m.h; tmp.getContext('2d')!.putImageData(img, 0, 0);
     mctx.imageSmoothingEnabled = false;
     mctx.clearRect(0, 0, mc.width, mc.height);
     mctx.drawImage(tmp, 0, 0, mc.width, mc.height);
-    for (const u of g.s.units) { if (u.dead || u.inHouse >= 0) continue; mctx.fillStyle = u.task.kind === 'soldier' ? PLAYER_COLORS[u.owner] : '#ffffff'; mctx.fillRect(Math.floor(u.x * sx), Math.floor(u.y * sy), Math.max(1, sx), Math.max(1, sy)); }
+    for (const u of g.s.units) { if (u.dead || u.inHouse >= 0 || !this.explored(Math.round(u.x), Math.round(u.y))) continue; mctx.fillStyle = u.task.kind === 'soldier' ? PLAYER_COLORS[u.owner] : '#ffffff'; mctx.fillRect(Math.floor(u.x * sx), Math.floor(u.y * sy), Math.max(1, sx), Math.max(1, sy)); }
     for (const msg of g.s.messages.slice(-5)) if (msg.kind === 'alert' && msg.x !== undefined && g.s.tick - msg.tick < 300 && (this.frame % 30) < 15) { mctx.strokeStyle = '#ff4040'; mctx.lineWidth = 2; mctx.strokeRect(msg.x! * sx - 4, msg.y! * sy - 4, 8, 8); }
     const vw = this.canvas.width / this.zoom / TILE, vh = this.canvas.height / this.zoom / TILE;
     mctx.strokeStyle = '#ffffff'; mctx.lineWidth = 1;

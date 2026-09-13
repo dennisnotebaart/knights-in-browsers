@@ -54,7 +54,7 @@ function createState(m: Mission): GameState {
     tick: 0, map, houses: [], units: [], groups: [], projectiles: [], fx: [], messages: [], nextId: 1, player: 1,
     stats: { produced: {}, trained: {}, killed: 0, lost: 0 }, tileIncoming: {}, outcome: 'playing', outcomeTick: 0,
     missionId: m.id, objectives: m.objectives.map(o => ({ ...o })), waves: m.waves.map(w => ({ ...w })), wavesDone: 0, aiTimers: {}, pairCooldown: {},
-    playerHasPlacedHouse: false, hints: [...m.hints],
+    playerHasPlacedHouse: false, hints: [...m.hints], freePlay: false,
   };
 }
 
@@ -63,11 +63,12 @@ function startMission(m: Mission, state?: GameState) {
   const s = state ?? createState(m);
   game = new Game(s);
   if (!state) { m.setup(game); game.rebuildIndexes(); game.dirtyTiles.length = 0; for (const u of game.s.units) u.condition = u.task.kind === 'soldier' ? 0.85 + Math.random() * 0.15 : 0.6 + Math.random() * 0.4; }
+  game.updateFog();
   game.onSound = n => audio.play(n);
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
   if (!renderer) renderer = new Renderer(canvas, game, sprites, assets); else renderer.setGame(game);
-  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { autosave(); stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
+  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { autosave(); stopLoop(); audio.stopMusic(); show('menu'); }; ui.onNext = () => { const n = nextMission(); if (n) { autosave(); stopLoop(); audio.stopMusic(); showBriefing(n); } }; ui.hasNext = () => !!nextMission(); } else ui.setGame(game);
   ui.setSpeed(1); ui.setTab('build');
   outcomeShown = false; outcomeFrames = 0;
   show('game');
@@ -123,22 +124,41 @@ function showOutcome() {
   const next = won && mission.campaign && idx + 1 < MISSIONS.length && MISSIONS[idx + 1].campaign ? MISSIONS[idx + 1] : null;
   $('btn-next').classList.toggle('hidden', !next);
   $('btn-next').onclick = () => { if (next) showBriefing(next); };
+  $('btn-keep').classList.toggle('hidden', !won);
+  $('btn-keep').onclick = keepPlaying;
   $('btn-retry').onclick = () => { if (mission) showBriefing(mission); };
   stopLoop();
   audio.stopMusic();
   show('outcome');
 }
 
+/** After a victory: keep the settlement running with no further objectives. */
+function keepPlaying() {
+  if (!game || !mission) return;
+  game.s.outcome = 'playing'; game.s.freePlay = true;
+  outcomeShown = false; outcomeFrames = 0;
+  show('game'); resize();
+  startLoop(); audio.startMusic();
+  lastAutosave = performance.now();
+  game.msg('Mission complete. Keep building for as long as you like; the next mission waits in the Menu tab.', 'good');
+}
+function nextMission(): Mission | null {
+  if (!mission || !mission.campaign) return null;
+  const i = MISSIONS.indexOf(mission);
+  return i + 1 < MISSIONS.length && MISSIONS[i + 1].campaign ? MISSIONS[i + 1] : null;
+}
+
 // ---------- save / load ----------
 function serialize(s: GameState): string {
   const m = s.map;
-  const map = { w: m.w, h: m.h, terrain: Array.from(m.terrain), obj: Array.from(m.obj), data: Array.from(m.data), house: Array.from(m.house), owner: Array.from(m.owner) };
+  const map = { w: m.w, h: m.h, terrain: Array.from(m.terrain), obj: Array.from(m.obj), data: Array.from(m.data), house: Array.from(m.house), owner: Array.from(m.owner), fog: Array.from(m.fog) };
   return JSON.stringify({ ...s, map, groups: s.groups.map(g => ({ ...g, facing: (g as any).facing })) });
 }
 function deserialize(json: string): GameState {
   const o = JSON.parse(json);
   const map: MapData = createMap(o.map.w, o.map.h);
   map.terrain.set(o.map.terrain); map.obj.set(o.map.obj); map.data.set(o.map.data); map.house.set(o.map.house); map.owner.set(o.map.owner);
+  if (o.map.fog) map.fog.set(o.map.fog); else map.fog.fill(1); // saves from before fog of war
   return { ...o, map };
 }
 function autosave() {

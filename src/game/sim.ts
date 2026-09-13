@@ -132,6 +132,7 @@ export class Game {
   canPlaceHouse(type: HouseType, x: number, y: number, owner: number): string | null {
     const def = HOUSE_DEFS[type];
     for (let yy = 0; yy < def.h; yy++) for (let xx = 0; xx < def.w; xx++) {
+      if (owner === this.s.player && !this.isExplored(x + xx, y + yy)) return 'Unexplored land';
       if (!isBuildable(this.map, x + xx, y + yy)) return 'Ground is not free';
       const o = this.map.owner[idx(this.map, x + xx, y + yy)];
       if (o !== 0 && o !== owner) return 'Enemy territory';
@@ -259,6 +260,7 @@ export class Game {
   // ---------- roads & fields ----------
   placePlan(kind: 'road' | 'field' | 'wine', x: number, y: number, owner: number): boolean {
     if (!isBuildable(this.map, x, y)) return false;
+    if (owner === this.s.player && !this.isExplored(x, y)) return false;
     const i = idx(this.map, x, y);
     if (this.map.owner[i] !== 0 && this.map.owner[i] !== owner) return false;
     if (kind !== 'road' && this.map.terrain[i] !== Terrain.Grass && this.map.terrain[i] !== Terrain.Dirt) return false;
@@ -278,10 +280,37 @@ export class Game {
     }
   }
 
+  // ---------- fog of war ----------
+  fogChanged = false;
+
+  revealCircle(cx: number, cy: number, r: number) {
+    const m = this.map, r2 = (r + 0.5) * (r + 0.5);
+    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(m.h - 1, Math.ceil(cy + r)); y++) for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(m.w - 1, Math.ceil(cx + r)); x++) {
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy > r2) continue;
+      const i = idx(m, x, y);
+      if (!m.fog[i]) { m.fog[i] = 1; this.fogChanged = true; }
+    }
+  }
+
+  /** Reveal everything the player's units and houses can see. */
+  updateFog() {
+    const p = this.s.player;
+    for (const u of this.s.units) if (!u.dead && u.owner === p && u.inHouse < 0) this.revealCircle(u.x, u.y, UNIT_DEFS[u.type].sight + 1);
+    for (const h of this.s.houses) {
+      if (h.owner !== p || h.state === 'destroyed') continue;
+      const def = HOUSE_DEFS[h.type];
+      this.revealCircle(h.x + def.w / 2, h.y + def.h / 2, def.special === 'tower' ? 11 : def.special === 'store' || def.special === 'barracks' ? 10 : 7);
+    }
+  }
+  isExplored(x: number, y: number) { return inBounds(this.map, x, y) && this.map.fog[idx(this.map, x, y)] === 1; }
+  revealAll() { this.map.fog.fill(1); this.fogChanged = true; }
+
   // ---------- main tick ----------
   update() {
     const s = this.s;
     s.tick++;
+    if (s.tick % 10 === 0) this.updateFog();
     if (s.tick % 5 === 0) this.matchDeliveries();
     if (s.tick % 7 === 0) this.assignLabourers();
     if (s.tick % 9 === 0) this.assignWorkers();
@@ -1098,7 +1127,7 @@ export class Game {
     if (s.playerHasPlacedHouse || s.tick > 100) {
       if (!alive('storehouse') && !alive('school') && soldiers === 0) { s.outcome = 'lost'; s.outcomeTick = s.tick; this.msg('Your settlement has fallen.', 'alert'); return; }
     }
-    if (!s.objectives.length) return;
+    if (!s.objectives.length || s.freePlay) return;
     const done = s.objectives.every(o => this.objectiveDone(o));
     if (done) { s.outcome = 'won'; s.outcomeTick = s.tick; this.msg('Victory! All objectives complete.', 'good'); this.sound('victory'); }
   }

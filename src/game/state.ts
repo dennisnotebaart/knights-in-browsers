@@ -126,6 +126,7 @@ export interface GameState {
   pairCooldown: Record<string, number>;
   playerHasPlacedHouse: boolean;
   hints: string[];
+  freePlay?: boolean;   // mission already won, player chose to keep playing
 }
 
 export const emptyStock = (): Stock => ({});
