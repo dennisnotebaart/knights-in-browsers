@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knights in Browsers</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%233a6fd8'/><path d='M3 12 L8 3 L13 12 Z' fill='%23e8c020'/></svg>" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- main menu -->
+    <div id="menu" class="screen" style="background-image:url('art/title.jpg')">
+      <div class="menu-box">
+        <h1>Knights <span>in</span> Browsers</h1>
+        <p class="tagline">A settlers-and-soldiers strategy game in the spirit of the classics</p>
+        <div class="menu-buttons">
+          <button id="btn-campaign">Campaign</button>
+          <button id="btn-skirmish">Free Play</button>
+          <button id="btn-load">Load Game</button>
+          <button id="btn-help">How to Play</button>
+        </div>
+        <p class="credits">Fan-made tribute. No original assets used.</p>
+      </div>
+    </div>
+    <!-- mission select -->
+    <div id="missions" class="screen hidden" style="background-image:url('art/title.jpg')">
+      <div class="menu-box wide">
+        <h2>Campaign</h2>
+        <div id="mission-list"></div>
+        <button class="back" data-back="menu">Back</button>
+      </div>
+    </div>
+    <!-- briefing -->
+    <div id="briefing" class="screen hidden" style="background-image:url('art/title.jpg')">
+      <div class="briefing-box">
+        <img id="briefing-art" alt="" />
+        <div class="briefing-text">
+          <h2 id="briefing-title"></h2>
+          <div id="briefing-body"></div>
+          <h3>Objectives</h3>
+          <ul id="briefing-objectives"></ul>
+          <div class="row"><button id="btn-start">Begin</button><button class="back" data-back="missions">Back</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- help -->
+    <div id="help" class="screen hidden" style="background-image:url('art/title.jpg')">
+      <div class="menu-box wide help-box">
+        <h2>How to Play</h2>
+        <div class="help-text">
+          <p><b>The idea.</b> Build a working medieval economy, then turn it into an army. Everything is carried by <b>serfs</b> along <b>roads</b>, built by <b>labourers</b>, and every house needs a worker trained at the <b>School</b> for one gold each.</p>
+          <p><b>Building.</b> Open the Build tab, click a house and place it. Its door must face a road: draw roads from the yellow entrance tile back to the storehouse. Serfs bring timber and stone to the site and a labourer builds it. Fields for farms and wine fields for vineyards are placed like roads.</p>
+          <p><b>Food.</b> Citizens get hungry. An <b>Inn</b> stocked with bread, sausages or wine keeps them working. Starving units die. Soldiers are fed by serfs automatically as long as there is food in a storehouse.</p>
+          <p><b>Chains.</b> Woodcutter → Sawmill → timber. Quarry → stone. Farm → Mill → Bakery → bread. Farm → Swine farm → Butcher → sausages, and skins → Tannery → leather. Mines need deposits: coal + iron ore → Iron smithy → steel; coal + gold ore → Metallurgist → gold.</p>
+          <p><b>Army.</b> Train recruits at the School; they walk to the <b>Barracks</b>. Weapons and armour are delivered there. Click a soldier type in the Barracks panel to equip a recruit. Select soldiers by clicking or dragging a box, right-click to move, right-click an enemy to attack. Halt, Split, Link and column buttons control formations. Pikes beat cavalry, cavalry beats archers, archers beat everything from a distance.</p>
+          <p><b>Controls.</b> Arrow keys / WASD / mouse at screen edge scroll. Mouse wheel zooms. Right-click cancels placement. Esc clears the selection. Space pauses. Keys 1-3 set game speed. Click a message to jump to it. Save any time from the Menu tab.</p>
+        </div>
+        <button class="back" data-back="menu">Back</button>
+      </div>
+    </div>
+    <!-- game -->
+    <div id="game" class="hidden">
+      <div id="panel">
+        <canvas id="minimap" width="236" height="236"></canvas>
+        <div id="tabs">
+          <button data-tab="build" class="active" title="Build (B)">Build</button>
+          <button data-tab="stats" title="Statistics">Stats</button>
+          <button data-tab="menu" title="Menu">Menu</button>
+        </div>
+        <div id="tab-content"></div>
+        <div id="info"></div>
+      </div>
+      <div id="view">
+        <canvas id="c"></canvas>
+        <div id="topbar">
+          <span id="clock">00:00</span>
+          <span id="speed-btns"><button data-speed="0" title="Pause (space)">❚❚</button><button data-speed="1" class="active">1×</button><button data-speed="3">3×</button><button data-speed="8">8×</button></span>
+          <span id="objective-short"></span>
+        </div>
+        <div id="messages"></div>
+      </div>
+    </div>
+    <div id="tooltip" class="hidden"></div>
+    <!-- outcome -->
+    <div id="outcome" class="screen hidden">
+      <div class="briefing-box">
+        <img id="outcome-art" alt="" />
+        <div class="briefing-text">
+          <h2 id="outcome-title"></h2>
+          <p id="outcome-text"></p>
+          <div class="row"><button id="btn-next">Continue</button><button id="btn-retry">Play again</button><button class="back" data-back="menu">Main menu</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>
