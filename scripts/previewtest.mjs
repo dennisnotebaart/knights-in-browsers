@@ -7,7 +7,7 @@ const errors = [], failed = [];
 page.on('pageerror', e => errors.push(e.message));
 page.on('requestfailed', r => failed.push(r.url()));
 page.on('response', r => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
-await page.goto('http://127.0.0.1:5194/'); await page.waitForTimeout(600);
+await page.goto('http://127.0.0.1:5194/'); await page.waitForFunction(() => window.__ready, null, { timeout: 30000 });
 await page.click('#btn-campaign'); await page.click('#mission-list button'); await page.waitForTimeout(300);
 const bg = await page.evaluate(() => getComputedStyle(document.getElementById('briefing')).backgroundImage);
 const artOk = await page.evaluate(() => { const i = document.getElementById('briefing-art'); return i.complete && i.naturalWidth > 0; });

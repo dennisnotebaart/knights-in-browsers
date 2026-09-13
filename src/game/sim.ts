@@ -687,14 +687,15 @@ export class Game {
       if (ux === u.dest.x && uy === u.dest.y) { u.x = ux; u.y = uy; u.dest = null; return; }
       // stagger path searches when blocked
       if (u.pathFails > 0 && (this.s.tick + u.id) % 25 !== 0) return;
-      const p = findPath(this.map, ux, uy, u.dest.x, u.dest.y, u.dest.road ? this.roadWalkable : this.walkable, u.dest.road ? 3000 : 5000, this.walkable);
+      // a serf standing off the road network (after feeding soldiers, a demolished house...) walks freely
+      const road = u.dest.road && this.roadWalkable(ux, uy);
+      const p = findPath(this.map, ux, uy, u.dest.x, u.dest.y, road ? this.roadWalkable : this.walkable, road ? 3000 : 5000, this.walkable);
       if (!p) { u.pathFails++; return; }
       u.path = p; u.pathFails = 0;
     }
     const next = u.path[0];
     // re-plan if the next tile got blocked (house placed)
-    const passable = u.dest.road ? this.roadWalkable : this.walkable;
-    if (!passable(next.x, next.y) && !(next.x === u.dest.x && next.y === u.dest.y)) { u.path = []; return; }
+    if (!this.walkable(next.x, next.y) && !(next.x === u.dest.x && next.y === u.dest.y)) { u.path = []; return; }
     const dx = next.x - u.x, dy = next.y - u.y;
     const dist = Math.hypot(dx, dy);
     let speed = def.speed;

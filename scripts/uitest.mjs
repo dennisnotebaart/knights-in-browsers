@@ -8,7 +8,7 @@ const errors = [];
 page.on('pageerror', e => errors.push('PAGEERROR ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
 page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE ' + m.text()); });
 const SS = '/tmp/claude-0/-home-user-knights-in-browsers/db3d8e22-af50-5594-b2f7-bd43bbc65f30/scratchpad/ui';
-await page.goto('http://127.0.0.1:5195/'); await page.waitForTimeout(400);
+await page.goto('http://127.0.0.1:5195/'); await page.waitForFunction(() => window.__ready, null, { timeout: 30000 });
 await page.screenshot({ path: `${SS}-menu.png` });
 // menu -> campaign -> mission 1 -> briefing -> start
 await page.click('#btn-campaign'); await page.waitForTimeout(200);
@@ -20,7 +20,7 @@ const log = [];
 // pause so the scene is static
 await page.keyboard.press(' ');
 // screen position of a tile
-const tileToScreen = (tx, ty) => page.evaluate(([tx, ty]) => { const r = window.renderer; const c = r.canvas.getBoundingClientRect(); return { x: c.left + (tx * 32 + 16 - r.cam.x) * r.zoom, y: c.top + (ty * 32 + 16 - r.cam.y) * r.zoom }; }, [tx, ty]);
+const tileToScreen = (tx, ty) => page.evaluate(([tx, ty]) => { const r = window.renderer; const c = r.canvas.getBoundingClientRect(); const T = window.__dev.TILE; return { x: c.left + (tx * T + T / 2 - r.cam.x) * r.zoom, y: c.top + (ty * T + T / 2 - r.cam.y) * r.zoom }; }, [tx, ty]);
 // 1. place an inn through the build panel
 await page.click('button[data-house="inn"]');
 let st = await page.evaluate(() => { const s = window.game.s.houses[0]; return { x: s.x, y: s.y }; });

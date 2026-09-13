@@ -43,7 +43,7 @@ export class UI {
     window.addEventListener('mouseup', e => this.onMouseUp(e));
     c.addEventListener('mousemove', e => this.onMouseMove(e));
     c.addEventListener('mouseleave', () => { this.mouse.inView = false; this.place.x = -1; });
-    c.addEventListener('mouseenter', () => { this.mouse.inView = true; });
+    c.addEventListener('mouseenter', e => { this.mouse.inView = true; this.mouse.x = e.offsetX; this.mouse.y = e.offsetY; });
     c.addEventListener('wheel', e => { e.preventDefault(); this.zoomAt(e.deltaY < 0 ? 1 : -1, e.offsetX, e.offsetY); }, { passive: false });
     window.addEventListener('keydown', e => this.onKey(e, true));
     window.addEventListener('keyup', e => this.onKey(e, false));
@@ -284,8 +284,8 @@ export class UI {
   houseIconHtml(t: HouseType) { return `<canvas class="hi" data-h="${t}"></canvas>`; }
   /** After setting innerHTML, paint all placeholder canvases. */
   paintIcons(root: HTMLElement) {
-    for (const c of root.querySelectorAll('canvas.wi') as NodeListOf<HTMLCanvasElement>) { c.width = 16; c.height = 16; c.getContext('2d')!.drawImage(this.S.wares[c.dataset.w as Ware], 0, 0); }
-    for (const c of root.querySelectorAll('canvas.ui') as NodeListOf<HTMLCanvasElement>) { c.width = 24; c.height = 32; c.getContext('2d')!.drawImage(this.S.units[`${c.dataset.u}-${c.dataset.o}`][0][0], 0, 0); }
+    for (const c of root.querySelectorAll('canvas.wi') as NodeListOf<HTMLCanvasElement>) { c.width = 40; c.height = 40; const x = c.getContext('2d')!; x.imageSmoothingEnabled = true; x.drawImage(this.S.wares[c.dataset.w as Ware], 0, 0, 40, 40); }
+    for (const c of root.querySelectorAll('canvas.ui') as NodeListOf<HTMLCanvasElement>) { c.width = 24; c.height = 32; const fr = this.S.units[`${c.dataset.u}-${c.dataset.o}`][0][1]; const x = c.getContext('2d')!; x.imageSmoothingEnabled = fr.width > 24; x.drawImage(fr, 0, 0, fr.width, fr.height, fr.width > 24 ? 1 : 0, 0, fr.width > 24 ? 22 : 24, 32); }
     for (const c of root.querySelectorAll('canvas.hi') as NodeListOf<HTMLCanvasElement>) { c.width = 48; c.height = 40; c.getContext('2d')!.drawImage(this.S.houses[c.dataset.h as HouseType].icon, 0, 0); }
   }
 

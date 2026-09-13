@@ -4,8 +4,10 @@ A fan-made, browser-based strategy game in the spirit of *Knights and Merchants*
 medieval economy out of serfs, roads and production chains, keep everyone fed, then raise an
 army and settle the argument with the neighbours.
 
-Everything runs client-side (TypeScript + Canvas 2D, no engine). In-game sprites are drawn
-procedurally at startup; the menu and briefing paintings were generated with Imagine.art.
+Everything runs client-side (TypeScript + Canvas 2D, no engine). Terrain textures, houses,
+trees, unit sprite sheets, ware icons and the menu paintings were generated with Imagine.art
+and post-processed with the scripts under `scripts/` (background removal, sheet splitting,
+normalisation, WebP packing). Effects and a few icons are still drawn procedurally.
 
 ## Play
 

@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
 page.on('pageerror', e => errors.push('PAGEERROR ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 3).join('\n')));
 page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE ' + m.text()); });
-await page.goto('http://127.0.0.1:5196/'); await page.waitForTimeout(400);
+await page.goto('http://127.0.0.1:5196/'); await page.waitForFunction(() => window.__ready, null, { timeout: 30000 });
 const ticks = Number(process.argv[2] || 20000);
 for (const id of ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'skirmish']) {
   await page.evaluate(id => window.__start(id), id);

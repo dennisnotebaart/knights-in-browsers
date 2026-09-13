@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
 page.on('pageerror', e => errors.push('PAGEERROR ' + e.message + '\n' + (e.stack || '')));
 page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errors.push('CONSOLE ' + m.text()); });
-await page.goto('http://127.0.0.1:5199/');
+await page.goto('http://127.0.0.1:5199/'); await page.waitForFunction(() => window.__ready, null, { timeout: 30000 });
 await page.waitForTimeout(500);
 const out = process.argv[2] || 'scratch';
 const mission = process.argv[3] || 'm1';

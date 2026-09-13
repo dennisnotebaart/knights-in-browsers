@@ -1,10 +1,9 @@
 // ---- Procedurally drawn pixel-art sprites ----
 import { HOUSE_DEFS, UNIT_DEFS, WARES, PLAYER_COLORS } from './defs';
 import type { HouseType, UnitType, Ware } from './defs';
-import { Terrain, Obj } from './map';
+import type { Assets } from './assets';
 
-export const TILE = 32;
-const SEED_TILE_VARIANTS = 4;
+export const TILE = 40;
 
 type C2D = CanvasRenderingContext2D;
 
@@ -25,129 +24,97 @@ function shade(hex: string, f: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+export interface HouseArt { img: HTMLImageElement | null; done: HTMLCanvasElement; ruin: HTMLCanvasElement; icon: HTMLCanvasElement; }
+
 export interface Sprites {
-  terrain: Record<number, HTMLCanvasElement[]>;   // Terrain -> variants
-  water: HTMLCanvasElement[];
-  road: HTMLCanvasElement; roadPlan: HTMLCanvasElement; roadDig: HTMLCanvasElement;
-  field: HTMLCanvasElement[]; wine: HTMLCanvasElement[]; fieldPlan: HTMLCanvasElement; winePlan: HTMLCanvasElement;
-  tree: HTMLCanvasElement[]; sapling: HTMLCanvasElement; stump: HTMLCanvasElement; bush: HTMLCanvasElement; rock: HTMLCanvasElement;
-  ore: Record<string, HTMLCanvasElement>;
-  houses: Record<HouseType, { done: HTMLCanvasElement; stages: HTMLCanvasElement[]; icon: HTMLCanvasElement; ruin: HTMLCanvasElement }>;
+  houses: Record<HouseType, HouseArt>;
   units: Record<string, HTMLCanvasElement[][]>;  // key `${type}-${owner}` -> [dir4][frame]
   wares: Record<Ware, HTMLCanvasElement>;
   flag: HTMLCanvasElement[];
+  masks: { edge: HTMLCanvasElement[]; corner: HTMLCanvasElement[] }; // terrain blending masks (N E S W / NE SE SW NW)
+  hd: boolean; // image-based unit sprites (64x96 cells) rather than 24x32 pixel art
 }
 
-export function buildSprites(): Sprites {
-  const S: Sprites = { terrain: {}, water: [], road: null!, roadPlan: null!, roadDig: null!, field: [], wine: [], fieldPlan: null!, winePlan: null!, tree: [], sapling: null!, stump: null!, bush: null!, rock: null!, ore: {}, houses: {} as any, units: {}, wares: {} as any, flag: [] };
-
-  // ----- terrain -----
-  const terrainBase: Record<number, [string, string]> = {
-    [Terrain.Grass]: ['#5f9a3c', '#4f8a30'], [Terrain.Sand]: ['#d8c88a', '#c8b878'], [Terrain.Mountain]: ['#8a8a86', '#6e6e6a'],
-    [Terrain.Dirt]: ['#8c7a4e', '#7a6a40'], [Terrain.Snow]: ['#e8ecf0', '#d0d8e0'], [Terrain.Water]: ['#2f6fb0', '#2a62a0'],
-  };
-  for (const t of [Terrain.Grass, Terrain.Sand, Terrain.Mountain, Terrain.Dirt, Terrain.Snow]) {
-    S.terrain[t] = [];
-    for (let v = 0; v < SEED_TILE_VARIANTS; v++) {
-      const [c, ctx] = mkCanvas(TILE, TILE);
-      const r = rng(1000 + t * 10 + v);
-      ctx.fillStyle = terrainBase[t][0]; ctx.fillRect(0, 0, TILE, TILE);
-      for (let i = 0; i < 40; i++) { ctx.fillStyle = r() < 0.5 ? terrainBase[t][1] : shade(terrainBase[t][0], 1.08); ctx.fillRect((r() * TILE) | 0, (r() * TILE) | 0, 2, 2); }
-      if (t === Terrain.Grass) { ctx.fillStyle = '#6fae48'; for (let i = 0; i < 6; i++) { const x = (r() * 30) | 0, y = (r() * 28) | 0; ctx.fillRect(x, y, 1, 3); ctx.fillRect(x + 2, y + 1, 1, 2); } }
-      if (t === Terrain.Mountain) {
-        ctx.fillStyle = '#5a5a56'; for (let i = 0; i < 5; i++) { const x = (r() * 26) | 0, y = (r() * 26) | 0; ctx.fillRect(x, y, 6 + (r() * 6 | 0), 2); }
-        ctx.fillStyle = '#a4a49e'; for (let i = 0; i < 5; i++) { const x = (r() * 26) | 0, y = (r() * 26) | 0; ctx.fillRect(x, y, 4 + (r() * 5 | 0), 2); }
-      }
-      S.terrain[t].push(c);
-    }
+export function buildSprites(A: Assets): Sprites {
+  const S: Sprites = { houses: {} as any, units: {}, wares: {} as any, flag: [], masks: { edge: [], corner: [] }, hd: false };
+  for (const w of WARES) {
+    const img = A.wares[w];
+    if (img) { const [c, ctx] = mkCanvas(32, 32); ctx.imageSmoothingEnabled = true; ctx.drawImage(img, 0, 0, 32, 32); S.wares[w] = c; }
+    else S.wares[w] = wareIcon(w);
   }
-  for (let f = 0; f < 3; f++) {
-    const [c, ctx] = mkCanvas(TILE, TILE);
-    ctx.fillStyle = terrainBase[Terrain.Water][0]; ctx.fillRect(0, 0, TILE, TILE);
-    ctx.fillStyle = '#4a8ad0';
-    for (let i = 0; i < 6; i++) { const y = ((i * 5 + f * 2) % TILE); ctx.fillRect(((i * 7 + f * 4) % TILE), y, 8, 1); }
-    ctx.fillStyle = '#2a5a98'; for (let i = 0; i < 5; i++) { ctx.fillRect(((i * 11 + f * 3 + 5) % TILE), (i * 6 + 3) % TILE, 6, 1); }
-    S.water.push(c);
+  for (const t of Object.keys(HOUSE_DEFS) as HouseType[]) S.houses[t] = houseArt(t, A.houses[t] ?? null, S);
+  for (const t of Object.keys(UNIT_DEFS) as UnitType[]) for (let o = 1; o < PLAYER_COLORS.length; o++) {
+    const sheet = A.units[t];
+    S.units[`${t}-${o}`] = sheet ? unitFromSheet(sheet, PLAYER_COLORS[o], o) : unitSprites(t, PLAYER_COLORS[o], S);
   }
-  // road
-  {
-    const [c, ctx] = mkCanvas(TILE, TILE); const r = rng(77);
-    ctx.fillStyle = '#a89468'; ctx.fillRect(0, 0, TILE, TILE);
-    for (let i = 0; i < 30; i++) { ctx.fillStyle = r() < 0.5 ? '#988458' : '#b8a478'; ctx.fillRect((r() * TILE) | 0, (r() * TILE) | 0, 2, 2); }
-    ctx.fillStyle = '#8a7a50'; for (let i = 0; i < 6; i++) ctx.fillRect((r() * 28) | 0, (r() * 28) | 0, 3, 2);
-    S.road = c;
-  }
-  S.roadPlan = planTile('#e8e0b0'); S.fieldPlan = planTile('#f0d860'); S.winePlan = planTile('#d090e0');
-  { const [c, ctx] = mkCanvas(TILE, TILE); ctx.fillStyle = '#7a6a40'; ctx.fillRect(0, 0, TILE, TILE); ctx.fillStyle = '#5a4a28'; for (let i = 0; i < 8; i++) ctx.fillRect((i * 9) % 30, (i * 13) % 30, 4, 2); S.roadDig = c; }
-  // fields: 0 empty ploughed, 1..5 growing, 6 ripe
-  for (let st = 0; st <= 6; st++) {
-    const [c, ctx] = mkCanvas(TILE, TILE);
-    ctx.fillStyle = '#7a5a30'; ctx.fillRect(0, 0, TILE, TILE);
-    ctx.fillStyle = '#6a4a22'; for (let y = 2; y < TILE; y += 6) ctx.fillRect(0, y, TILE, 2);
-    if (st > 0) {
-      const hgt = Math.min(14, 2 + st * 2);
-      ctx.fillStyle = st >= 6 ? '#d8b830' : st >= 4 ? '#a8b040' : '#68a838';
-      for (let x = 2; x < TILE; x += 5) for (let y = 4; y < TILE; y += 6) { ctx.fillRect(x, y + 2 - hgt / 2, 2, hgt / 2 + 1); }
-      if (st >= 6) { ctx.fillStyle = '#f0d040'; for (let x = 2; x < TILE; x += 5) for (let y = 4; y < TILE; y += 6) ctx.fillRect(x - 1, y - 5, 4, 3); }
-    }
-    S.field.push(c);
-  }
-  for (let st = 0; st <= 6; st++) {
-    const [c, ctx] = mkCanvas(TILE, TILE);
-    ctx.fillStyle = '#6a5a3a'; ctx.fillRect(0, 0, TILE, TILE);
-    ctx.fillStyle = '#5a4a2a'; for (let x = 4; x < TILE; x += 10) ctx.fillRect(x, 0, 2, TILE);
-    if (st > 0) {
-      ctx.fillStyle = '#3e7a30';
-      for (let x = 2; x < TILE; x += 10) for (let y = 2; y < TILE; y += 5) ctx.fillRect(x, y, 6, 3);
-      if (st >= 5) { ctx.fillStyle = st >= 6 ? '#6a2a7a' : '#8a5a9a'; for (let x = 4; x < TILE; x += 10) for (let y = 5; y < TILE; y += 8) ctx.fillRect(x, y, 3, 3); }
-    }
-    S.wine.push(c);
-  }
-  // trees
-  for (let v = 0; v < 3; v++) {
-    const [c, ctx] = mkCanvas(TILE, TILE + 16);
-    const r = rng(500 + v);
-    ctx.fillStyle = '#5a3a1a'; ctx.fillRect(14, 30, 5, 16);
-    const cols = v === 2 ? ['#2f6a2a', '#3f8a38', '#58a848'] : ['#2a6a30', '#3a8a40', '#54a858'];
-    const cx = 16, cy = 22;
-    for (let i = 0; i < 3; i++) {
-      ctx.fillStyle = cols[i];
-      const rad = 13 - i * 3.5;
-      ctx.beginPath(); ctx.ellipse(cx - i * 1.5, cy - i * 2, rad, rad * (v === 2 ? 1.3 : 0.9), 0, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.fillStyle = '#1e4a20'; for (let i = 0; i < 6; i++) ctx.fillRect((6 + r() * 20) | 0, (10 + r() * 20) | 0, 2, 2);
-    S.tree.push(c);
-  }
-  { const [c, ctx] = mkCanvas(TILE, TILE); ctx.fillStyle = '#5a3a1a'; ctx.fillRect(15, 18, 3, 12); ctx.fillStyle = '#4a9a40'; ctx.beginPath(); ctx.ellipse(16, 15, 6, 7, 0, 0, Math.PI * 2); ctx.fill(); S.sapling = c; }
-  { const [c, ctx] = mkCanvas(TILE, TILE); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(12, 18, 9, 8); ctx.fillStyle = '#a88a5a'; ctx.fillRect(12, 16, 9, 4); S.stump = c; }
-  { const [c, ctx] = mkCanvas(TILE, TILE); ctx.fillStyle = '#3a7a30'; ctx.beginPath(); ctx.ellipse(16, 22, 9, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#4f9a40'; ctx.beginPath(); ctx.ellipse(14, 20, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); S.bush = c; }
-  { const [c, ctx] = mkCanvas(TILE, TILE); ctx.fillStyle = '#7a7a76'; ctx.beginPath(); ctx.ellipse(16, 22, 10, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#9a9a96'; ctx.fillRect(10, 16, 8, 5); S.rock = c; }
-  for (const [k, col] of [['coal', '#1a1a1a'], ['iron', '#b06a40'], ['gold', '#e8c030']] as const) {
-    const [c, ctx] = mkCanvas(TILE, TILE);
-    ctx.drawImage(S.terrain[Terrain.Mountain][0], 0, 0);
-    ctx.fillStyle = col; const r = rng(k.length * 31);
-    for (let i = 0; i < 9; i++) { ctx.fillRect((2 + r() * 26) | 0, (2 + r() * 26) | 0, 3, 3); }
-    S.ore[k] = c;
-  }
-
-  // ----- wares -----
-  for (const w of WARES) S.wares[w] = wareIcon(w);
-
-  // ----- houses -----
-  for (const t of Object.keys(HOUSE_DEFS) as HouseType[]) S.houses[t] = houseSprites(t, S);
-
-  // ----- units -----
-  for (const t of Object.keys(UNIT_DEFS) as UnitType[]) for (let o = 1; o < PLAYER_COLORS.length; o++) S.units[`${t}-${o}`] = unitSprites(t, PLAYER_COLORS[o], S);
-
-  // flags
+  S.hd = Object.keys(A.units).length > 0;
   for (let o = 0; o < PLAYER_COLORS.length; o++) { const [c, ctx] = mkCanvas(10, 14); ctx.fillStyle = '#5a3a1a'; ctx.fillRect(1, 0, 2, 14); ctx.fillStyle = PLAYER_COLORS[o]; ctx.fillRect(3, 1, 7, 5); S.flag.push(c); }
+  S.masks = buildMasks();
   return S;
 }
 
-function planTile(col: string): HTMLCanvasElement {
-  const [c, ctx] = mkCanvas(TILE, TILE);
-  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(3, 3, TILE - 6, TILE - 6);
-  return c;
+/** Feathered, slightly wavy alpha masks used to blend a neighbouring terrain over a tile edge. */
+function buildMasks() {
+  const edge: HTMLCanvasElement[] = [], corner: HTMLCanvasElement[] = [];
+  const r = rng(4242);
+  const wob = new Float32Array(TILE * 2); for (let i = 0; i < wob.length; i++) wob[i] = (r() - 0.5) * 7;
+  const feather = TILE * 0.42;
+  const sm = (t: number) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+  for (let d = 0; d < 4; d++) {
+    const [c, ctx] = mkCanvas(TILE, TILE);
+    const img = ctx.createImageData(TILE, TILE);
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const along = d % 2 === 0 ? x : y;
+      const dist = d === 0 ? y : d === 1 ? TILE - 1 - x : d === 2 ? TILE - 1 - y : x;
+      const a = 1 - sm((dist + wob[(along + d * 17) % wob.length]) / feather);
+      img.data[(y * TILE + x) * 4 + 3] = Math.round(255 * a);
+    }
+    ctx.putImageData(img, 0, 0); edge.push(c);
+  }
+  for (let d = 0; d < 4; d++) { // NE SE SW NW
+    const [c, ctx] = mkCanvas(TILE, TILE);
+    const img = ctx.createImageData(TILE, TILE);
+    const cx = d === 0 || d === 1 ? TILE : 0, cy = d === 1 || d === 2 ? TILE : 0;
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const dist = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) + wob[(x + y + d * 23) % wob.length] * 0.6;
+      const a = 1 - sm(dist / (feather * 0.9));
+      img.data[(y * TILE + x) * 4 + 3] = Math.round(255 * a);
+    }
+    ctx.putImageData(img, 0, 0); corner.push(c);
+  }
+  return { edge, corner };
+}
+
+function houseArt(type: HouseType, img: HTMLImageElement | null, S: Sprites): HouseArt {
+  const def = HOUSE_DEFS[type];
+  const W = def.w * TILE, H = def.h * TILE;
+  if (!img) { // fallback: flat coloured block
+    const [c, ctx] = mkCanvas(W, H + 10);
+    ctx.fillStyle = def.wall; ctx.fillRect(0, 10, W, H); ctx.fillStyle = def.roof; ctx.fillRect(0, 0, W, Math.round(H * 0.45) + 10);
+    const [icon, ictx] = mkCanvas(48, 40); ictx.drawImage(c, 0, 0, 48, 40);
+    return { img: null, done: c, ruin: c, icon };
+  }
+  // done: the image itself at native (2x) resolution
+  const [done, dctx] = mkCanvas(img.width, img.height); dctx.drawImage(img, 0, 0);
+  // ruin: lower 62% with a jagged top edge, darkened and desaturated
+  const [ruin, rctx] = mkCanvas(img.width, img.height);
+  const r = rng(type.length * 977);
+  rctx.save();
+  rctx.beginPath();
+  const top = img.height * 0.38;
+  rctx.moveTo(0, img.height);
+  rctx.lineTo(0, top + 20);
+  for (let x = 0; x <= img.width; x += img.width / 9) rctx.lineTo(x, top + (r() - 0.5) * img.height * 0.22);
+  rctx.lineTo(img.width, img.height); rctx.closePath(); rctx.clip();
+  rctx.drawImage(img, 0, 0);
+  rctx.globalCompositeOperation = 'source-atop';
+  rctx.fillStyle = 'rgba(30,22,14,0.62)'; rctx.fillRect(0, 0, img.width, img.height);
+  rctx.restore();
+  const [icon, ictx] = mkCanvas(48, 40);
+  const sc = Math.min(46 / img.width, 38 / img.height);
+  ictx.drawImage(img, (48 - img.width * sc) / 2, (40 - img.height * sc) / 2, img.width * sc, img.height * sc);
+  void S;
+  return { img, done, ruin, icon };
 }
 
 function wareIcon(w: Ware): HTMLCanvasElement {
@@ -186,101 +153,27 @@ function wareIcon(w: Ware): HTMLCanvasElement {
   return c;
 }
 
-function houseSprites(type: HouseType, S: Sprites) {
-  const def = HOUSE_DEFS[type];
-  const W = def.w * TILE, H = def.h * TILE;
-  const roofH = Math.round(H * 0.45) + 8;
-  const total = H + 10;
-  const draw = (stage: number, ruin = false): HTMLCanvasElement => {
-    const [c, ctx] = mkCanvas(W, total);
-    const oy = 10; // roof overhang above the footprint
-    const wall = ruin ? '#7a7068' : def.wall, roof = ruin ? '#4a4038' : def.roof;
-    const frac = stage; // 0..1 completion
-    // ground / foundation
-    ctx.fillStyle = '#8a7a58'; ctx.fillRect(1, oy + 1, W - 2, H - 2);
-    ctx.fillStyle = '#6a5a3c'; ctx.fillRect(1, oy + H - 3, W - 2, 2);
-    if (frac < 0.25) {
-      // stakes and a pile of materials
-      ctx.fillStyle = '#7a5a2a'; for (let x = 4; x < W; x += 10) ctx.fillRect(x, oy + 4, 2, H - 8);
-      ctx.drawImage(S.wares.wood, W / 2 - 12, oy + H / 2 - 8); ctx.drawImage(S.wares.stone, W / 2 + 2, oy + H / 2 - 8);
-      return c;
-    }
-    const wallTop = oy + roofH - 4;
-    const wallH = H - roofH + 4;
-    const visibleWall = frac < 0.6 ? wallH * ((frac - 0.25) / 0.35) : wallH;
-    // walls (built bottom-up)
-    ctx.fillStyle = wall; ctx.fillRect(2, wallTop + wallH - visibleWall, W - 4, visibleWall);
-    ctx.fillStyle = shade(wall, 0.8); ctx.fillRect(2, wallTop + wallH - visibleWall, 3, visibleWall); // shadow side
-    // timber frame lines
-    ctx.fillStyle = shade(wall, 0.55);
-    for (let x = 8; x < W - 4; x += 14) ctx.fillRect(x, wallTop + wallH - visibleWall, 2, visibleWall);
-    ctx.fillRect(2, wallTop + wallH - visibleWall, W - 4, 2);
-    // door
-    const dx = def.entrance * TILE + TILE / 2 - 6;
-    if (frac >= 0.6 || ruin) { ctx.fillStyle = '#3a2a14'; ctx.fillRect(dx, oy + H - 16, 12, 14); ctx.fillStyle = '#5a4020'; ctx.fillRect(dx + 1, oy + H - 15, 10, 12); }
-    // windows
-    if (frac >= 0.6 && !ruin) { ctx.fillStyle = '#2a2a40'; for (let x = 8; x < W - 12; x += 22) { if (Math.abs(x - dx) < 12) continue; ctx.fillRect(x, oy + H - 20, 7, 7); ctx.fillStyle = '#f0e080'; ctx.fillRect(x + 1, oy + H - 19, 2, 2); ctx.fillStyle = '#2a2a40'; } }
-    // roof
-    if (frac >= 0.6) {
-      const roofFrac = ruin ? 0.35 : Math.min(1, (frac - 0.6) / 0.4);
-      const rh = Math.round(roofH * roofFrac);
-      // roof as trapezoid rows
-      for (let y = 0; y < rh; y++) {
-        const t = 1 - y / roofH;
-        const inset = Math.round(t * (W * 0.16));
-        const yy = oy + roofH - 1 - y;
-        ctx.fillStyle = (y % 5 === 0) ? shade(roof, 0.75) : roof;
-        ctx.fillRect(inset, yy, W - inset * 2, 1);
-      }
-      ctx.fillStyle = shade(roof, 1.2); const inset = Math.round((1 - rh / roofH) * (W * 0.16)); ctx.fillRect(inset, oy + roofH - rh, W - inset * 2, 2);
-      // ridge & chimney
-      if (roofFrac >= 1) {
-        ctx.fillStyle = shade(roof, 0.6); ctx.fillRect(Math.round(W * 0.16), oy, W - Math.round(W * 0.32), 2);
-        if (def.recipes || def.special === 'inn' || def.special === 'mine') { ctx.fillStyle = '#5a5a5a'; ctx.fillRect(W - 14, oy + 2, 6, 10); }
-      }
-    }
-    if (ruin) { ctx.fillStyle = 'rgba(30,20,10,0.35)'; ctx.fillRect(0, 0, W, total); ctx.fillStyle = '#2a2a2a'; ctx.fillRect(6, oy + H - 8, 10, 4); ctx.fillRect(W - 20, oy + H - 12, 12, 5); }
-    if (frac >= 1 && !ruin) houseDecor(type, ctx, W, H, oy, S);
-    return c;
-  };
-  const done = draw(1);
-  const stages = [draw(0), draw(0.35), draw(0.7), draw(0.9)];
-  const ruin = draw(1, true);
-  const [icon, ictx] = mkCanvas(48, 40);
-  const sc = Math.min(48 / W, 40 / total);
-  ictx.drawImage(done, (48 - W * sc) / 2, (40 - total * sc) / 2, W * sc, total * sc);
-  return { done, stages, icon, ruin };
-}
+export const SHEET_W = 64;
 
-function houseDecor(type: HouseType, ctx: C2D, W: number, H: number, oy: number, S: Sprites) {
-  const sign = (w: Ware, x: number) => { ctx.fillStyle = '#e8dcc0'; ctx.fillRect(x - 2, oy + H - 30, 20, 20); ctx.drawImage(S.wares[w], x, oy + H - 28); };
-  switch (type) {
-    case 'storehouse': ctx.fillStyle = '#c8b090'; ctx.fillRect(6, oy + H - 12, 14, 10); ctx.fillStyle = '#5a3a1a'; ctx.fillRect(6, oy + H - 12, 14, 2); sign('wood', W - 26); break;
-    case 'school': ctx.fillStyle = '#e8e0c0'; ctx.fillRect(W / 2 - 8, oy + 4, 16, 12); ctx.fillStyle = '#3b4c8c'; ctx.fillRect(W / 2 - 6, oy + 6, 12, 2); ctx.fillRect(W / 2 - 6, oy + 10, 12, 2); break;
-    case 'inn': sign('wine', W - 24); ctx.fillStyle = '#f0e080'; ctx.fillRect(4, oy + H - 22, 5, 5); break;
-    case 'quarry': ctx.fillStyle = '#b0b0ac'; ctx.fillRect(4, oy + H - 12, 10, 8); ctx.fillRect(16, oy + H - 9, 8, 5); break;
-    case 'woodcutters': ctx.fillStyle = '#7a4a1a'; ctx.fillRect(4, oy + H - 10, 22, 4); ctx.fillRect(6, oy + H - 14, 18, 4); break;
-    case 'sawmill': ctx.fillStyle = '#c8965a'; ctx.fillRect(W - 28, oy + H - 12, 24, 3); ctx.fillRect(W - 26, oy + H - 8, 20, 3); ctx.fillStyle = '#b0b0b0'; ctx.beginPath(); ctx.arc(10, oy + H - 20, 6, 0, Math.PI * 2); ctx.fill(); break;
-    case 'farm': sign('corn', W - 24); break;
-    case 'mill': { ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 3; const cx = W / 2, cy = oy + 12; for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 18, cy + Math.sin(a) * 18); ctx.stroke(); } break; }
-    case 'bakery': sign('bread', W - 24); break;
-    case 'swineFarm': ctx.fillStyle = '#7a5a30'; for (let x = 4; x < W - 30; x += 6) ctx.fillRect(x, oy + H - 10, 2, 8); ctx.drawImage(S.wares.pig, 8, oy + H - 20); break;
-    case 'butchers': sign('sausage', W - 24); break;
-    case 'vineyard': sign('wine', W - 24); break;
-    case 'tannery': sign('leather', W - 24); break;
-    case 'coalMine': ctx.fillStyle = '#222'; ctx.fillRect(W / 2 - 8, oy + H - 18, 16, 16); ctx.drawImage(S.wares.coal, 4, oy + H - 18); break;
-    case 'ironMine': ctx.fillStyle = '#222'; ctx.fillRect(W / 2 - 8, oy + H - 18, 16, 16); ctx.drawImage(S.wares.ironOre, 4, oy + H - 18); break;
-    case 'goldMine': ctx.fillStyle = '#222'; ctx.fillRect(W / 2 - 8, oy + H - 18, 16, 16); ctx.drawImage(S.wares.goldOre, 4, oy + H - 18); break;
-    case 'ironSmithy': sign('steel', W - 24); break;
-    case 'metallurgists': sign('gold', W - 24); break;
-    case 'weaponsWorkshop': sign('axe', W - 24); break;
-    case 'armorWorkshop': sign('shield', W - 24); break;
-    case 'weaponSmithy': sign('sword', W - 24); break;
-    case 'armorSmithy': sign('ironArmor', W - 24); break;
-    case 'stables': sign('horse', W - 24); ctx.fillStyle = '#7a5a30'; for (let x = 4; x < 30; x += 6) ctx.fillRect(x, oy + H - 10, 2, 8); break;
-    case 'barracks': ctx.fillStyle = '#5a4a3a'; for (let x = 6; x < W - 6; x += 8) ctx.fillRect(x, oy + 2, 4, 6); sign('sword', W - 24); break;
-    case 'watchtower': ctx.fillStyle = '#5a4a3a'; for (let x = 2; x < W - 2; x += 6) ctx.fillRect(x, oy - 2, 3, 5); break;
+/** Cut a normalised 4x3 sheet into frames; enemies get a colour wash so sides are easy to tell apart. */
+function unitFromSheet(sheet: HTMLImageElement, ownerCol: string, owner: number): HTMLCanvasElement[][] {
+  const out: HTMLCanvasElement[][] = [];
+  const cw = sheet.width / 3, ch = sheet.height / 4;
+  for (let dir = 0; dir < 4; dir++) {
+    const frames: HTMLCanvasElement[] = [];
+    for (let f = 0; f < 3; f++) {
+      const [c, ctx] = mkCanvas(cw, ch);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(sheet, f * cw, dir * ch, cw, ch, 0, 0, cw, ch);
+      // team colour: a light wash for non-player owners
+      ctx.globalCompositeOperation = 'source-atop';
+      if (owner !== 1) { ctx.fillStyle = ownerCol; ctx.globalAlpha = 0.28; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
+      ctx.globalCompositeOperation = 'source-over';
+      frames.push(c);
+    }
+    out.push(frames);
   }
+  return out;
 }
 
 function unitSprites(type: UnitType, ownerCol: string, S: Sprites): HTMLCanvasElement[][] {
@@ -379,4 +272,3 @@ export function dir4(d8: number): number {
   return 0;
 }
 
-export function objName(o: Obj): string { return String(o); }
