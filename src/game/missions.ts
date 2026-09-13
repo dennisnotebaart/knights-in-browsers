@@ -296,13 +296,13 @@ export const MISSIONS: Mission[] = [
     },
     objectives: [OBJ.survive(30)],
     waves: [
-      wave(3, 2, 74, 20, [{ type: 'militia', count: 5 }]),
-      wave(7, 2, 74, 20, [{ type: 'axeFighter', count: 5 }, { type: 'bowman', count: 2 }]),
-      wave(11, 2, 40, 64, [{ type: 'scout', count: 4 }], 'Riders from the south!'),
-      wave(15, 2, 74, 20, [{ type: 'axeFighter', count: 6 }, { type: 'bowman', count: 4 }]),
-      wave(19, 2, 72, 58, [{ type: 'swordFighter', count: 4 }, { type: 'lanceCarrier', count: 3 }], 'Heavy infantry from the south-east!'),
-      wave(23, 2, 74, 20, [{ type: 'swordFighter', count: 4 }, { type: 'crossbowman', count: 4 }, { type: 'scout', count: 3 }]),
-      wave(27, 2, 74, 20, [{ type: 'knight', count: 2 }, { type: 'swordFighter', count: 4 }, { type: 'bowman', count: 3 }], 'The Usurper\'s knights ride against us!'),
+      wave(4, 2, 74, 20, [{ type: 'militia', count: 5 }]),
+      wave(8, 2, 74, 20, [{ type: 'axeFighter', count: 5 }, { type: 'bowman', count: 2 }]),
+      wave(12, 2, 40, 64, [{ type: 'scout', count: 4 }], 'Riders from the south!'),
+      wave(16, 2, 74, 20, [{ type: 'axeFighter', count: 6 }, { type: 'bowman', count: 4 }]),
+      wave(20, 2, 72, 58, [{ type: 'swordFighter', count: 4 }, { type: 'lanceCarrier', count: 3 }], 'Heavy infantry from the south-east!'),
+      wave(24, 2, 74, 20, [{ type: 'swordFighter', count: 4 }, { type: 'crossbowman', count: 4 }, { type: 'scout', count: 3 }]),
+      wave(28, 2, 74, 20, [{ type: 'knight', count: 2 }, { type: 'swordFighter', count: 4 }, { type: 'bowman', count: 3 }], 'The Usurper\'s knights ride against us!'),
     ],
     setup: g => {
       playerVillage(g, 18, 26, 3);

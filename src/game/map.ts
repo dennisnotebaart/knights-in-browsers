@@ -220,9 +220,7 @@ export function generateMap(spec: MapSpec): MapData {
       else if (rng.next() < 0.006) m.obj[i] = Obj.Rock;
     }
   }
-  // clearing ops first so deposits and forests painted afterwards survive
-  const ops = [...(spec.paint ?? [])].sort((a, b) => (a.op === 'clear' ? 0 : 1) - (b.op === 'clear' ? 0 : 1));
-  for (const op of ops) applyPaint(m, op, rng);
+  for (const op of spec.paint ?? []) applyPaint(m, op, rng);
   // map border: mountains at the edge to keep things tidy
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (x === 0 || y === 0 || x === w - 1 || y === h - 1) { m.terrain[y * w + x] = Terrain.Mountain; m.obj[y * w + x] = Obj.None; }
@@ -257,6 +255,8 @@ export function applyPaint(m: MapData, op: PaintOp, rng: Rng) {
       for (let y = op.y - op.r; y <= op.y + op.r; y++) for (let x = op.x - op.r; x <= op.x + op.r; x++) {
         if (!inBounds(m, x, y) || Math.hypot(x - op.x, y - op.y) > op.r) continue;
         const i = idx(m, x, y);
+        const o = m.obj[i];
+        if (o === Obj.Coal || o === Obj.Iron || o === Obj.Gold) continue; // keep ore deposits
         m.terrain[i] = Terrain.Grass; m.obj[i] = Obj.None; m.data[i] = 0;
       }
       break;

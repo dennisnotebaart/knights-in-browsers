@@ -718,6 +718,8 @@ export class Game {
       u.hp--;
       if (u.hp <= 0) { if (u.owner === this.s.player) this.msg(`A ${UNIT_DEFS[u.type].name.toLowerCase()} has starved to death.`, 'alert', u.x, u.y); this.killUnit(u); return; }
     }
+    // fed, resting soldiers slowly recover
+    if (t.kind === 'soldier' && u.hp < u.maxHp && u.condition > 0.5 && u.targetUnit < 0 && u.targetHouse < 0 && (this.s.tick + u.id) % 150 === 0) u.hp++;
     if (u.inHouse < 0) this.stepMovement(u);
     switch (t.kind) {
       case 'idle': this.taskIdle(u, t); break;

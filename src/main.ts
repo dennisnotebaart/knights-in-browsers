@@ -55,7 +55,7 @@ function startMission(m: Mission, state?: GameState) {
   mission = m;
   const s = state ?? createState(m);
   game = new Game(s);
-  if (!state) { m.setup(game); game.rebuildIndexes(); game.dirtyTiles.length = 0; for (const u of game.s.units) u.condition = 0.6 + Math.random() * 0.4; }
+  if (!state) { m.setup(game); game.rebuildIndexes(); game.dirtyTiles.length = 0; for (const u of game.s.units) u.condition = u.task.kind === 'soldier' ? 0.85 + Math.random() * 0.15 : 0.6 + Math.random() * 0.4; }
   game.onSound = n => audio.play(n);
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
