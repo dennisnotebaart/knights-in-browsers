@@ -196,6 +196,7 @@ export class UI {
   selectGroup(grp: Group) { this.sel = { house: null, units: [], groups: [grp.id] }; this.refreshGroupUnits(); this.renderInfo(true); }
   refreshGroupUnits() {
     this.sel.groups = this.sel.groups.filter(id => this.g.group(id));
+    if (!this.sel.groups.length) { this.sel.units = this.sel.units.filter(u => !u.dead); return; } // single citizen stays selected
     this.sel.units = [];
     for (const gid of this.sel.groups) { const grp = this.g.group(gid)!; for (const id of grp.units) { const u = this.g.unit(id); if (u && !u.dead) this.sel.units.push(u); } }
   }
