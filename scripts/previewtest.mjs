@@ -1,0 +1,16 @@
+import { chromium } from 'playwright-core';
+import { preview } from 'vite';
+const server = await preview({ root: process.cwd(), preview: { port: 5194, host: '127.0.0.1' }, logLevel: 'error' });
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errors = [], failed = [];
+page.on('pageerror', e => errors.push(e.message));
+page.on('requestfailed', r => failed.push(r.url()));
+page.on('response', r => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
+await page.goto('http://127.0.0.1:5194/'); await page.waitForTimeout(600);
+await page.click('#btn-campaign'); await page.click('#mission-list button'); await page.waitForTimeout(300);
+const bg = await page.evaluate(() => getComputedStyle(document.getElementById('briefing')).backgroundImage);
+const artOk = await page.evaluate(() => { const i = document.getElementById('briefing-art'); return i.complete && i.naturalWidth > 0; });
+await page.click('#btn-start'); await page.waitForTimeout(500);
+console.log({ bg, artOk, errors, failed });
+await browser.close(); server.httpServer.close();
