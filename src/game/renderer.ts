@@ -33,6 +33,7 @@ export class Renderer {
   dragRect: { x0: number; y0: number; x1: number; y1: number } | null = null;
   hoverTile = { x: -1, y: -1 };
   shade: Float32Array = new Float32Array(0);
+  height: Float32Array = new Float32Array(0);   // mountain height field: distance into the rock mass
   fogCanvas: HTMLCanvasElement; fogCtx: CanvasRenderingContext2D;   // 1 px per tile, alpha = unexplored
   fogSoft: HTMLCanvasElement; fogSoftCtx: CanvasRenderingContext2D; // blurred copy for soft edges
   fogEnabled = true;
@@ -56,12 +57,79 @@ export class Renderer {
       const n = (this.vnoise(x / 6, y / 6, 1) * 0.6 + this.vnoise(x / 2.5, y / 2.5, 2) * 0.4);
       this.shade[y * m.w + x] = n;
     }
+    this.buildHeight();
     this.buildStatic();
     const F = 3; // fog resolution: 3 px per tile
     this.fogCanvas.width = m.w * F; this.fogCanvas.height = m.h * F;
     this.fogSoft.width = m.w * F; this.fogSoft.height = m.h * F;
     g.fogChanged = true;
     this.rebuildFog();
+  }
+
+  /** Multi-source BFS from every non-mountain tile: interior rock is higher. */
+  buildHeight() {
+    const m = this.g.map, n = m.w * m.h;
+    this.height = new Float32Array(n);
+    const q: number[] = [];
+    for (let i = 0; i < n; i++) { if (m.terrain[i] !== Terrain.Mountain) { this.height[i] = 0; q.push(i); } else this.height[i] = -1; }
+    let head = 0;
+    while (head < q.length) {
+      const i = q[head++]; const x = i % m.w, y = (i / m.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy; if (!inBounds(m, xx, yy)) continue;
+        const j = yy * m.w + xx;
+        if (this.height[j] < 0) { this.height[j] = this.height[i] + 1; q.push(j); }
+      }
+    }
+    // smooth a little so slopes are gradual
+    const out = new Float32Array(n);
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
+      let sum = 0, c = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (!inBounds(m, xx, yy)) continue; sum += this.height[yy * m.w + xx]; c++; }
+      out[y * m.w + x] = m.terrain[y * m.w + x] === Terrain.Mountain ? Math.max(0.5, sum / c) : 0;
+    }
+    this.height = out;
+  }
+  h(x: number, y: number) { return inBounds(this.g.map, x, y) ? this.height[y * this.g.map.w + x] : 0; }
+  /** Lighting from the top-left for the corner of a tile: positive = lit, negative = shadow. */
+  lit(x: number, y: number) {
+    const sx = (this.h(x, y - 1) + this.h(x, y)) / 2 - (this.h(x - 1, y - 1) + this.h(x - 1, y)) / 2;
+    const sy = (this.h(x - 1, y) + this.h(x, y)) / 2 - (this.h(x - 1, y - 1) + this.h(x, y - 1)) / 2;
+    return (sx + sy) * 0.5;
+  }
+
+  /** Bilinear height at world tile coordinates (heights live at tile centres). */
+  hAt(fx: number, fy: number) {
+    const x = fx - 0.5, y = fy - 0.5;
+    const x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0;
+    const a = this.h(x0, y0), b = this.h(x0 + 1, y0), c = this.h(x0, y0 + 1), d = this.h(x0 + 1, y0 + 1);
+    return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty;
+  }
+
+  /** Grey light map for one mountain tile: 128 = neutral, brighter faces the top-left sun. */
+  reliefMap(x: number, y: number): ImageData {
+    const img = this.tctx.createImageData(TILE, TILE);
+    const d = img.data;
+    const lx = -0.62, ly = -0.62, lz = 0.48; // light from the upper left, fairly low
+    const eps = 0.12, amp = 1.1;
+    for (let py = 0; py < TILE; py++) for (let px = 0; px < TILE; px++) {
+      const fx = x + (px + 0.5) / TILE, fy = y + (py + 0.5) / TILE;
+      const hc = this.hAt(fx, fy);
+      // terraces: steeper faces along contour bands, like stacked rock ledges
+      const terr = (h: number) => h + 0.09 * Math.sin(h * 4.2);
+      const dx = (terr(this.hAt(fx + eps, fy)) - terr(this.hAt(fx - eps, fy))) / (2 * eps);
+      const dy = (terr(this.hAt(fx, fy + eps)) - terr(this.hAt(fx, fy - eps))) / (2 * eps);
+      let nx = -dx * amp, ny = -dy * amp, nz = 1;
+      const len = Math.hypot(nx, ny, nz); nx /= len; ny /= len; nz /= len;
+      const dot = nx * lx + ny * ly + nz * lz;         // flat ground gives 0.48
+      let v = 128 + (dot - 0.48) * 105;
+      v += (hc - 1) * 6;                                 // peaks a touch paler
+      v += (hash(Math.floor(fx * 8), Math.floor(fy * 8), 3) - 0.5) * 10; // rock grain
+      v = Math.max(60, Math.min(200, v));
+      const o = (py * TILE + px) * 4;
+      d[o] = v; d[o + 1] = v; d[o + 2] = Math.min(255, v + 4); d[o + 3] = 255;
+    }
+    return img;
   }
 
   rebuildFog() {
@@ -177,6 +245,21 @@ export class Renderer {
     else if (o === Obj.Bush) obj('bush', 30);
     else if (o === Obj.Rock) obj('boulder', 30);
     else if (o === Obj.Sapling) obj('sapling', 16 + (d / 255) * 8);
+    // hills: per-pixel relief lighting from the height field, blended over the rock texture
+    {
+      const isMtn = m.terrain[i] === Terrain.Mountain;
+      let nearMtn = false;
+      if (!isMtn && o !== Obj.Field && o !== Obj.WineField && o !== Obj.Road) for (let dy = -1; dy <= 1 && !nearMtn; dy++) for (let dx = -1; dx <= 1; dx++) if (inBounds(m, x + dx, y + dy) && m.terrain[idx(m, x + dx, y + dy)] === Terrain.Mountain) { nearMtn = true; break; }
+      if (isMtn || nearMtn) {
+        this.tctx.globalCompositeOperation = 'source-over';
+        this.tctx.putImageData(this.reliefMap(x, y), 0, 0);
+        ctx.globalCompositeOperation = 'hard-light';
+        ctx.globalAlpha = isMtn ? 1 : 0.75;
+        ctx.drawImage(this.tmp, px, py);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
     // shading to break repetition (skip fields/roads)
     if (o !== Obj.Field && o !== Obj.WineField && o !== Obj.Road) {
       const sh = this.shade[i];
@@ -185,7 +268,8 @@ export class Renderer {
     }
     // cliff shadow at the foot of mountains, shore foam on water
     const t = m.terrain[i];
-    if (t !== Terrain.Mountain && t !== Terrain.Water && y > 0 && m.terrain[idx(m, x, y - 1)] === Terrain.Mountain) { const gr = ctx.createLinearGradient(0, py, 0, py + 12); gr.addColorStop(0, 'rgba(0,0,0,0.35)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(px, py, TILE, 12); }
+    if (t !== Terrain.Mountain && t !== Terrain.Water && y > 0 && m.terrain[idx(m, x, y - 1)] === Terrain.Mountain) { const gr = ctx.createLinearGradient(0, py, 0, py + 18); gr.addColorStop(0, 'rgba(0,0,10,0.5)'); gr.addColorStop(1, 'rgba(0,0,10,0)'); ctx.fillStyle = gr; ctx.fillRect(px, py, TILE, 18); }
+    if (t !== Terrain.Mountain && t !== Terrain.Water && x > 0 && m.terrain[idx(m, x - 1, y)] === Terrain.Mountain) { const gr = ctx.createLinearGradient(px, 0, px + 12, 0); gr.addColorStop(0, 'rgba(0,0,10,0.35)'); gr.addColorStop(1, 'rgba(0,0,10,0)'); ctx.fillStyle = gr; ctx.fillRect(px, py, 12, TILE); }
     if (t === Terrain.Water) {
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
         if (inBounds(m, x + dx, y + dy) && m.terrain[idx(m, x + dx, y + dy)] !== Terrain.Water) {

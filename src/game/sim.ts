@@ -6,6 +6,7 @@ import {
 import type { HouseType, UnitType, Ware } from './defs';
 import { Obj, Terrain, findPath, idx, inBounds, isBuildable, walkableGround } from './map';
 import type { MapData, Point } from './map';
+import { dir4 } from './sprites';
 import type { GameState, House, Unit, Group, Task, Message, Stock } from './state';
 import { updateCombat, createGroup, removeUnitFromGroup } from './combat';
 import { updateAI } from './ai';
@@ -733,7 +734,17 @@ export class Game {
     if (dist <= speed) { u.x = next.x; u.y = next.y; u.path.shift(); }
     else { u.x += dx / dist * speed; u.y += dy / dist * speed; }
     u.moving = true;
-    u.dir = dirFrom(dx, dy);
+    // face the way the path is heading, not the current sub-step, so zig-zags don't flip the sprite
+    const ahead = u.path[Math.min(1, u.path.length - 1)] ?? next;
+    const adx = ahead.x - u.x, ady = ahead.y - u.y;
+    const nd = dirFrom(adx, ady);
+    if (dir4(nd) === dir4(u.dir)) { u.dir = nd; u.turn = 0; }
+    else {
+      // a visible change of facing must persist for a few ticks unless it is a real turn (two octants or more)
+      const diff = Math.min(Math.abs(nd - u.dir), 8 - Math.abs(nd - u.dir));
+      u.turn = (u.turn ?? 0) + 1;
+      if (diff >= 2 || u.turn >= 5) { u.dir = nd; u.turn = 0; }
+    }
     u.frame++;
   }
 
