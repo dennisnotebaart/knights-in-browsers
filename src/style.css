@@ -114,3 +114,4 @@ h4 { margin: 4px 0 4px; color: #f0d890; font-size: 14px; font-weight: normal; bo
 #loading-bar { height: 100%; width: 0; background: linear-gradient(#e0c060, #8a6a3a); transition: width 0.15s; }
 .loading-box p { color: #a89870; font-style: italic; }
 #panel { background-size: 256px; box-shadow: inset 0 0 40px rgba(0,0,0,0.5); }
+#autosave-note { color: #90d070; font-size: 12px; font-style: italic; }

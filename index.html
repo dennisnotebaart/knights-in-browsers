@@ -16,6 +16,7 @@
         <h1>Knights <span>in</span> Browsers</h1>
         <p class="tagline">A settlers-and-soldiers strategy game in the spirit of the classics</p>
         <div class="menu-buttons">
+          <button id="btn-continue" disabled>Continue</button>
           <button id="btn-campaign">Campaign</button>
           <button id="btn-skirmish">Free Play</button>
           <button id="btn-load">Load Game</button>
@@ -77,6 +78,7 @@
         <div id="topbar">
           <span id="clock">00:00</span>
           <span id="speed-btns"><button data-speed="0" title="Pause (space)">❚❚</button><button data-speed="1" class="active">1×</button><button data-speed="3">3×</button><button data-speed="8">8×</button></span>
+          <span id="autosave-note" class="hidden">Autosaved</span>
           <span id="objective-short"></span>
         </div>
         <div id="messages"></div>
