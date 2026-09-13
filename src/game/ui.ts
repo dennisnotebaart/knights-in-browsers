@@ -24,7 +24,7 @@ export class UI {
   mouse = { x: 0, y: 0, down: false, button: -1, sx: 0, sy: 0, dragging: false, panning: false, inView: false };
   lastPanel = 0;
   lastPanelKey = '';
-  onSave?: () => void; onLoad?: () => void; onQuit?: () => void;
+  onSave?: () => void; onLoad?: () => void; onQuit?: () => void; onNext?: () => void; hasNext?: () => boolean;
   minimapCtx: CanvasRenderingContext2D;
 
   constructor(public g: Game, public r: Renderer, public S: Sprites) {
@@ -265,7 +265,7 @@ export class UI {
     const sec = Math.floor(s.tick / 10);
     $('clock').textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
     const pending = s.objectives.filter(o => !this.g.objectiveDone(o));
-    $('objective-short').textContent = pending.length ? `Next: ${pending[0].text} (${this.g.objectiveProgress(pending[0])})` : 'All objectives complete';
+    $('objective-short').textContent = s.freePlay ? 'Mission complete · free play' : pending.length ? `Next: ${pending[0].text} (${this.g.objectiveProgress(pending[0])})` : 'All objectives complete';
   }
 
   renderMessages() {
@@ -325,6 +325,7 @@ export class UI {
       for (const o of g.s.objectives) html += `<li class="${g.objectiveDone(o) ? 'done' : ''}">${o.text} <span class="small">${g.objectiveProgress(o)}</span></li>`;
       html += `</ul>`;
       if (g.s.hints.length) { html += `<h4>Advice</h4><ul class="obj-list small">`; for (const h of g.s.hints) html += `<li>${h}</li>`; html += `</ul>`; }
+      if (g.s.freePlay && this.hasNext?.()) html += `<div class="menu-tab"><button data-act="next">Next mission ▶</button></div>`;
       html += `<h4>Game</h4><div class="menu-tab">
         <button data-act="save">Save game</button><button data-act="load">Load game</button>
         <button data-act="continue">Load autosave</button>
@@ -347,7 +348,7 @@ export class UI {
     if (b.dataset.tool) { const k = b.dataset.tool as Placement['kind']; if (this.place.kind === k) this.cancelPlacement(); else this.startPlacement(k); return; }
     if (b.dataset.act) {
       const a = b.dataset.act;
-      if (a === 'save') this.onSave?.(); else if (a === 'load') this.onLoad?.(); else if (a === 'continue') { if (!(window as any).__dev.continueGame()) this.g.msg('No autosave found.', 'warn'); } else if (a === 'quit') this.onQuit?.();
+      if (a === 'save') this.onSave?.(); else if (a === 'load') this.onLoad?.(); else if (a === 'next') this.onNext?.(); else if (a === 'continue') { if (!(window as any).__dev.continueGame()) this.g.msg('No autosave found.', 'warn'); } else if (a === 'quit') this.onQuit?.();
       else if (a === 'territory') { this.showTerritory = !this.showTerritory; this.renderTab(); }
       else if (a === 'fog') { this.r.fogEnabled = !this.r.fogEnabled; this.renderTab(); }
       else if (a === 'sound') { (window as any).__toggleAudio?.(); this.renderTab(); }

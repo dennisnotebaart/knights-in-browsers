@@ -14,8 +14,8 @@ button { font-family: inherit; cursor: pointer; }
 .menu-box h2 { margin: 0 0 16px; color: #f0d890; }
 .tagline { margin: 0 0 22px; color: #c8b890; font-style: italic; }
 .menu-buttons { display: flex; flex-direction: column; gap: 10px; }
-.menu-buttons button, .back, #btn-start, #btn-next, #btn-retry { background: linear-gradient(#7a5a2a, #4a3418); color: #f0e0b0; border: 2px solid #b08a48; padding: 10px 22px; font-size: 18px; letter-spacing: 1px; }
-.menu-buttons button:hover, .back:hover, #btn-start:hover, #btn-next:hover, #btn-retry:hover { background: linear-gradient(#9a7a3a, #6a4a20); }
+.menu-buttons button, .back, #btn-start, #btn-next, #btn-retry, #btn-keep { background: linear-gradient(#7a5a2a, #4a3418); color: #f0e0b0; border: 2px solid #b08a48; padding: 10px 22px; font-size: 18px; letter-spacing: 1px; }
+.menu-buttons button:hover, .back:hover, #btn-start:hover, #btn-next:hover, #btn-retry:hover, #btn-keep:hover { background: linear-gradient(#9a7a3a, #6a4a20); }
 .menu-buttons button:disabled { opacity: 0.4; cursor: default; }
 .credits { margin: 20px 0 0; font-size: 12px; color: #8a7a5a; }
 .back { margin-top: 18px; }

@@ -54,7 +54,7 @@ function createState(m: Mission): GameState {
     tick: 0, map, houses: [], units: [], groups: [], projectiles: [], fx: [], messages: [], nextId: 1, player: 1,
     stats: { produced: {}, trained: {}, killed: 0, lost: 0 }, tileIncoming: {}, outcome: 'playing', outcomeTick: 0,
     missionId: m.id, objectives: m.objectives.map(o => ({ ...o })), waves: m.waves.map(w => ({ ...w })), wavesDone: 0, aiTimers: {}, pairCooldown: {},
-    playerHasPlacedHouse: false, hints: [...m.hints],
+    playerHasPlacedHouse: false, hints: [...m.hints], freePlay: false,
   };
 }
 
@@ -68,7 +68,7 @@ function startMission(m: Mission, state?: GameState) {
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
   if (!renderer) renderer = new Renderer(canvas, game, sprites, assets); else renderer.setGame(game);
-  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { autosave(); stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
+  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { autosave(); stopLoop(); audio.stopMusic(); show('menu'); }; ui.onNext = () => { const n = nextMission(); if (n) { autosave(); stopLoop(); audio.stopMusic(); showBriefing(n); } }; ui.hasNext = () => !!nextMission(); } else ui.setGame(game);
   ui.setSpeed(1); ui.setTab('build');
   outcomeShown = false; outcomeFrames = 0;
   show('game');
@@ -124,10 +124,28 @@ function showOutcome() {
   const next = won && mission.campaign && idx + 1 < MISSIONS.length && MISSIONS[idx + 1].campaign ? MISSIONS[idx + 1] : null;
   $('btn-next').classList.toggle('hidden', !next);
   $('btn-next').onclick = () => { if (next) showBriefing(next); };
+  $('btn-keep').classList.toggle('hidden', !won);
+  $('btn-keep').onclick = keepPlaying;
   $('btn-retry').onclick = () => { if (mission) showBriefing(mission); };
   stopLoop();
   audio.stopMusic();
   show('outcome');
+}
+
+/** After a victory: keep the settlement running with no further objectives. */
+function keepPlaying() {
+  if (!game || !mission) return;
+  game.s.outcome = 'playing'; game.s.freePlay = true;
+  outcomeShown = false; outcomeFrames = 0;
+  show('game'); resize();
+  startLoop(); audio.startMusic();
+  lastAutosave = performance.now();
+  game.msg('Mission complete. Keep building for as long as you like; the next mission waits in the Menu tab.', 'good');
+}
+function nextMission(): Mission | null {
+  if (!mission || !mission.campaign) return null;
+  const i = MISSIONS.indexOf(mission);
+  return i + 1 < MISSIONS.length && MISSIONS[i + 1].campaign ? MISSIONS[i + 1] : null;
 }
 
 // ---------- save / load ----------

@@ -1127,7 +1127,7 @@ export class Game {
     if (s.playerHasPlacedHouse || s.tick > 100) {
       if (!alive('storehouse') && !alive('school') && soldiers === 0) { s.outcome = 'lost'; s.outcomeTick = s.tick; this.msg('Your settlement has fallen.', 'alert'); return; }
     }
-    if (!s.objectives.length) return;
+    if (!s.objectives.length || s.freePlay) return;
     const done = s.objectives.every(o => this.objectiveDone(o));
     if (done) { s.outcome = 'won'; s.outcomeTick = s.tick; this.msg('Victory! All objectives complete.', 'good'); this.sound('victory'); }
   }
