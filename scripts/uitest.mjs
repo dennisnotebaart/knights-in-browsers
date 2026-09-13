@@ -20,7 +20,7 @@ const log = [];
 // pause so the scene is static
 await page.keyboard.press(' ');
 // screen position of a tile
-const tileToScreen = (tx, ty) => page.evaluate(([tx, ty]) => { const r = window.renderer; const c = r.canvas.getBoundingClientRect(); return { x: c.left + (tx * 32 + 16 - r.cam.x) * r.zoom, y: c.top + (ty * 32 + 16 - r.cam.y) * r.zoom }; }, [tx, ty]);
+const tileToScreen = (tx, ty) => page.evaluate(([tx, ty]) => { const r = window.renderer; const c = r.canvas.getBoundingClientRect(); const T = window.__dev.TILE; return { x: c.left + (tx * T + T / 2 - r.cam.x) * r.zoom, y: c.top + (ty * T + T / 2 - r.cam.y) * r.zoom }; }, [tx, ty]);
 // 1. place an inn through the build panel
 await page.click('button[data-house="inn"]');
 let st = await page.evaluate(() => { const s = window.game.s.houses[0]; return { x: s.x, y: s.y }; });

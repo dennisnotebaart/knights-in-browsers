@@ -357,9 +357,10 @@ export class Renderer {
     const frames = S.units[`${u.type}-${u.owner}`];
     if (!frames) return;
     const d = dir4(u.dir);
-    const f = u.moving || (u.task.kind === 'work' && u.task.phase === 2) || (u.task.kind === 'buildHouse' && u.task.phase === 1) || (u.task.kind === 'buildTile' && u.task.phase === 1) ? [0, 1, 0, 2][Math.floor(u.frame / 4) % 4] : 0;
-    const hd = S.hd && frames[0][0].width === 64;
-    const sw = hd ? 32 * 1.15 : 24 * UNIT_SCALE, sh = hd ? 48 * 1.15 : 32 * UNIT_SCALE;
+    const hd = S.hd && frames[0][0].width >= 48;
+    const active = u.moving || (u.task.kind === 'work' && u.task.phase === 2) || (u.task.kind === 'buildHouse' && u.task.phase === 1) || (u.task.kind === 'buildTile' && u.task.phase === 1);
+    const f = hd ? (active ? [0, 2][Math.floor(u.frame / 5) % 2] : 1) : (active ? [0, 1, 0, 2][Math.floor(u.frame / 4) % 4] : 0);
+    const sw = hd ? frames[0][0].width / 2 * 1.15 : 24 * UNIT_SCALE, sh = hd ? frames[0][0].height / 2 * 1.15 : 32 * UNIT_SCALE;
     const px = u.x * TILE + TILE / 2 - sw / 2, py = u.y * TILE + TILE - sh + 2;
     ctx.imageSmoothingEnabled = hd;
     if (u.task.kind === 'die') {
@@ -372,10 +373,8 @@ export class Renderer {
     if (u.hitFlash > 0 && (u.hitFlash & 1)) ctx.globalAlpha = 0.5;
     ctx.drawImage(frames[d][f], px, py, sw, sh);
     ctx.globalAlpha = 1;
-    ctx.imageSmoothingEnabled = false;
-    if (u.carry) ctx.drawImage(S.wares[u.carry], px + (d === 1 ? -2 : d === 3 ? sw - 12 : sw - 14), py + (hd ? 16 : 10), 16, 16);
+    if (u.carry) ctx.drawImage(S.wares[u.carry], px + (d === 1 ? -4 : d === 3 ? sw - 12 : sw - 14), py + (hd ? 14 : 10), 18, 18);
     if (u.condition < 0.3 && u.owner === this.g.s.player && (this.frame % 40) < 25) ctx.drawImage(S.wares.bread, px + sw / 2 - 8, py - 14, 16, 16);
-    ctx.imageSmoothingEnabled = true;
     if (u.hp < u.maxHp && (u.task.kind === 'soldier' || sel.units.includes(u))) {
       ctx.fillStyle = '#000'; ctx.fillRect(px + 3, py - 4, sw - 6, 3);
       ctx.fillStyle = u.hp / u.maxHp > 0.5 ? '#40d040' : u.hp / u.maxHp > 0.25 ? '#e0c040' : '#e04040'; ctx.fillRect(px + 3, py - 4, (sw - 6) * u.hp / u.maxHp, 3);

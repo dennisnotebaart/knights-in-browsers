@@ -76,7 +76,7 @@ button { font-family: inherit; cursor: pointer; }
 .tool-row button { font-size: 11px; color: #f0e0b0; height: 32px; }
 .ware-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
 .ware { display: flex; align-items: center; gap: 3px; background: rgba(255,255,255,0.05); padding: 2px 3px; font-size: 12px; position: relative; }
-.ware canvas { image-rendering: pixelated; width: 16px; height: 16px; }
+.ware canvas { width: 20px; height: 20px; }
 .ware.clickable { cursor: pointer; }
 .ware.clickable:hover { background: rgba(255,255,255,0.15); }
 .ware.off { opacity: 0.4; }
@@ -92,7 +92,7 @@ h4 { margin: 4px 0 4px; color: #f0d890; font-size: 14px; font-weight: normal; bo
 .unit-grid button { background: #4a3420; border: 1px solid #6a4a2a; padding: 1px; height: 40px; display: flex; align-items: center; justify-content: center; }
 .unit-grid button:hover { border-color: #d8b060; }
 .unit-grid button:disabled { opacity: 0.35; }
-.unit-grid canvas { image-rendering: pixelated; }
+.unit-grid canvas { }
 .btn-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
 .btn-row button, .menu-tab button { background: #4a3420; color: #f0e0b0; border: 1px solid #6a4a2a; padding: 4px 8px; font-size: 12px; }
 .btn-row button:hover, .menu-tab button:hover { border-color: #d8b060; }
@@ -102,9 +102,9 @@ h4 { margin: 4px 0 4px; color: #f0d890; font-size: 14px; font-weight: normal; bo
 .obj-list { padding-left: 16px; margin: 4px 0; }
 .obj-list li.done { color: #80d080; text-decoration: line-through; }
 .stat-row { display: flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 0; }
-.stat-row canvas { image-rendering: pixelated; }
+.stat-row canvas { }
 .queue { display: flex; gap: 2px; margin: 4px 0; min-height: 24px; }
-.queue canvas { image-rendering: pixelated; cursor: pointer; background: #2a1e12; border: 1px solid #6a4a2a; }
+.queue canvas { cursor: pointer; background: #2a1e12; border: 1px solid #6a4a2a; }
 
 #loading { position: absolute; inset: 0; background: #0e1216; display: flex; align-items: center; justify-content: center; z-index: 20; }
 .loading-box { text-align: center; }

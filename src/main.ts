@@ -2,7 +2,7 @@
 import { Game } from './game/sim';
 import { generateMap, createMap, findPath } from './game/map';
 import type { MapData } from './game/map';
-import { buildSprites } from './game/sprites';
+import { buildSprites, TILE } from './game/sprites';
 import { loadAssets } from './game/assets';
 import type { Assets } from './game/assets';
 import type { Sprites } from './game/sprites';
@@ -188,7 +188,7 @@ for (const b of document.querySelectorAll('.back') as NodeListOf<HTMLElement>) b
 // dev helpers
 (window as any).__start = (id: string) => { audio.init(); startMission(missionById(id)); };
 (window as any).__missions = MISSIONS;
-(window as any).__dev = { findPath };
+(window as any).__dev = { findPath, TILE };
 
 async function boot() {
   const bar = $('loading-bar');

@@ -37,7 +37,11 @@ export interface Sprites {
 
 export function buildSprites(A: Assets): Sprites {
   const S: Sprites = { houses: {} as any, units: {}, wares: {} as any, flag: [], masks: { edge: [], corner: [] }, hd: false };
-  for (const w of WARES) S.wares[w] = wareIcon(w);
+  for (const w of WARES) {
+    const img = A.wares[w];
+    if (img) { const [c, ctx] = mkCanvas(32, 32); ctx.imageSmoothingEnabled = true; ctx.drawImage(img, 0, 0, 32, 32); S.wares[w] = c; }
+    else S.wares[w] = wareIcon(w);
+  }
   for (const t of Object.keys(HOUSE_DEFS) as HouseType[]) S.houses[t] = houseArt(t, A.houses[t] ?? null, S);
   for (const t of Object.keys(UNIT_DEFS) as UnitType[]) for (let o = 1; o < PLAYER_COLORS.length; o++) {
     const sheet = A.units[t];
@@ -149,20 +153,21 @@ function wareIcon(w: Ware): HTMLCanvasElement {
   return c;
 }
 
-export const SHEET_W = 64, SHEET_H = 96;
+export const SHEET_W = 64;
 
 /** Cut a normalised 4x3 sheet into frames; enemies get a colour wash so sides are easy to tell apart. */
 function unitFromSheet(sheet: HTMLImageElement, ownerCol: string, owner: number): HTMLCanvasElement[][] {
   const out: HTMLCanvasElement[][] = [];
+  const cw = sheet.width / 3, ch = sheet.height / 4;
   for (let dir = 0; dir < 4; dir++) {
     const frames: HTMLCanvasElement[] = [];
     for (let f = 0; f < 3; f++) {
-      const [c, ctx] = mkCanvas(SHEET_W, SHEET_H);
+      const [c, ctx] = mkCanvas(cw, ch);
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(sheet, f * SHEET_W, dir * SHEET_H, SHEET_W, SHEET_H, 0, 0, SHEET_W, SHEET_H);
-      // team colour: a band on the shoulders/torso region plus a light wash for non-player owners
+      ctx.drawImage(sheet, f * cw, dir * ch, cw, ch, 0, 0, cw, ch);
+      // team colour: a light wash for non-player owners
       ctx.globalCompositeOperation = 'source-atop';
-      if (owner !== 1) { ctx.fillStyle = ownerCol; ctx.globalAlpha = 0.28; ctx.fillRect(0, 0, SHEET_W, SHEET_H); ctx.globalAlpha = 1; }
+      if (owner !== 1) { ctx.fillStyle = ownerCol; ctx.globalAlpha = 0.28; ctx.fillRect(0, 0, cw, ch); ctx.globalAlpha = 1; }
       ctx.globalCompositeOperation = 'source-over';
       frames.push(c);
     }
