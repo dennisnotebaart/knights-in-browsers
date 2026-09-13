@@ -69,6 +69,7 @@ export interface Unit {
   dead: boolean;
   hitFlash: number;
   guardPos: Point | null;
+  turn?: number;                    // ticks the heading has disagreed with the current facing
 }
 
 export interface Group {

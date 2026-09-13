@@ -223,6 +223,14 @@ export function generateMap(spec: MapSpec): MapData {
     }
   }
   for (const op of spec.paint ?? []) applyPaint(m, op, rng);
+  // sand only makes sense as a shore: lone sand patches away from water become grass
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (m.terrain[i] !== Terrain.Sand) continue;
+    let nearWater = false;
+    for (let dy = -2; dy <= 2 && !nearWater; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (inBounds(m, xx, yy) && m.terrain[yy * w + xx] === Terrain.Water) { nearWater = true; break; } }
+    if (!nearWater) m.terrain[i] = Terrain.Grass;
+  }
   // map border: mountains at the edge to keep things tidy
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (x === 0 || y === 0 || x === w - 1 || y === h - 1) { m.terrain[y * w + x] = Terrain.Mountain; m.obj[y * w + x] = Obj.None; }

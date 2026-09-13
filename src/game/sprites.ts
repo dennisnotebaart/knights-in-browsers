@@ -268,7 +268,8 @@ function drawUnit(ctx: C2D, type: UnitType, tunic: string, owner: string, dir: n
 
 /** Map 8-way direction to 4-way sprite direction (0 down, 1 left, 2 up, 3 right). */
 export function dir4(d8: number): number {
-  switch (d8) { case 0: return 0; case 1: case 2: return 1; case 3: case 4: case 5: return 2; case 6: case 7: return 3; }
+  // diagonals show the side view; only a straight climb shows the back
+  switch (d8) { case 0: return 0; case 1: case 2: case 3: return 1; case 4: return 2; case 5: case 6: case 7: return 3; }
   return 0;
 }
 
