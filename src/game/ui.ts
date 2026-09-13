@@ -285,7 +285,7 @@ export class UI {
   /** After setting innerHTML, paint all placeholder canvases. */
   paintIcons(root: HTMLElement) {
     for (const c of root.querySelectorAll('canvas.wi') as NodeListOf<HTMLCanvasElement>) { c.width = 16; c.height = 16; c.getContext('2d')!.drawImage(this.S.wares[c.dataset.w as Ware], 0, 0); }
-    for (const c of root.querySelectorAll('canvas.ui') as NodeListOf<HTMLCanvasElement>) { c.width = 24; c.height = 32; c.getContext('2d')!.drawImage(this.S.units[`${c.dataset.u}-${c.dataset.o}`][0][0], 0, 0); }
+    for (const c of root.querySelectorAll('canvas.ui') as NodeListOf<HTMLCanvasElement>) { c.width = 24; c.height = 32; const fr = this.S.units[`${c.dataset.u}-${c.dataset.o}`][0][1]; const x = c.getContext('2d')!; x.imageSmoothingEnabled = fr.width > 24; x.drawImage(fr, 0, 0, fr.width, fr.height, fr.width > 24 ? 1 : 0, 0, fr.width > 24 ? 22 : 24, 32); }
     for (const c of root.querySelectorAll('canvas.hi') as NodeListOf<HTMLCanvasElement>) { c.width = 48; c.height = 40; c.getContext('2d')!.drawImage(this.S.houses[c.dataset.h as HouseType].icon, 0, 0); }
   }
 

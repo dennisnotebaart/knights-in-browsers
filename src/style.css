@@ -105,3 +105,12 @@ h4 { margin: 4px 0 4px; color: #f0d890; font-size: 14px; font-weight: normal; bo
 .stat-row canvas { image-rendering: pixelated; }
 .queue { display: flex; gap: 2px; margin: 4px 0; min-height: 24px; }
 .queue canvas { image-rendering: pixelated; cursor: pointer; background: #2a1e12; border: 1px solid #6a4a2a; }
+
+#loading { position: absolute; inset: 0; background: #0e1216; display: flex; align-items: center; justify-content: center; z-index: 20; }
+.loading-box { text-align: center; }
+.loading-box h1 { font-size: 40px; color: #f0d890; margin: 0 0 18px; }
+.loading-box h1 span { font-size: 22px; color: #c8b080; font-style: italic; }
+.loading-track { width: 320px; height: 10px; border: 1px solid #8a6a3a; background: #1a1208; margin: 0 auto; }
+#loading-bar { height: 100%; width: 0; background: linear-gradient(#e0c060, #8a6a3a); transition: width 0.15s; }
+.loading-box p { color: #a89870; font-style: italic; }
+#panel { background-size: 256px; box-shadow: inset 0 0 40px rgba(0,0,0,0.5); }

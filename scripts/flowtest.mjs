@@ -8,7 +8,7 @@ const errors = [];
 page.on('pageerror', e => errors.push('PAGEERROR ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')));
 page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE ' + m.text()); });
 const SS = '/tmp/claude-0/-home-user-knights-in-browsers/db3d8e22-af50-5594-b2f7-bd43bbc65f30/scratchpad/flow';
-await page.goto('http://127.0.0.1:5193/'); await page.waitForTimeout(400);
+await page.goto('http://127.0.0.1:5193/'); await page.waitForFunction(() => window.__ready, null, { timeout: 30000 });
 
 // victory flow
 await page.evaluate(() => window.__start('m1'));

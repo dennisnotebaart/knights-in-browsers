@@ -3,6 +3,9 @@ import { Game } from './game/sim';
 import { generateMap, createMap, findPath } from './game/map';
 import type { MapData } from './game/map';
 import { buildSprites } from './game/sprites';
+import { loadAssets } from './game/assets';
+import type { Assets } from './game/assets';
+import type { Sprites } from './game/sprites';
 import { Renderer } from './game/renderer';
 import { UI } from './game/ui';
 import { Audio } from './game/audio';
@@ -14,7 +17,8 @@ import { TICKS_PER_SEC } from './game/defs';
 const $ = (id: string) => document.getElementById(id)!;
 const SAVE_KEY = 'kib-save-v1', PROGRESS_KEY = 'kib-progress-v1';
 
-const sprites = buildSprites();
+let sprites: Sprites;
+let assets: Assets;
 const audio = new Audio();
 (window as any).__audioEnabled = true;
 (window as any).__toggleAudio = () => { audio.enabled = !audio.enabled; (window as any).__audioEnabled = audio.enabled; };
@@ -59,7 +63,7 @@ function startMission(m: Mission, state?: GameState) {
   game.onSound = n => audio.play(n);
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
-  if (!renderer) renderer = new Renderer(canvas, game, sprites); else renderer.setGame(game);
+  if (!renderer) renderer = new Renderer(canvas, game, sprites, assets); else renderer.setGame(game);
   if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
   ui.setSpeed(1); ui.setTab('build');
   outcomeShown = false; outcomeFrames = 0;
@@ -185,4 +189,14 @@ for (const b of document.querySelectorAll('.back') as NodeListOf<HTMLElement>) b
 (window as any).__start = (id: string) => { audio.init(); startMission(missionById(id)); };
 (window as any).__missions = MISSIONS;
 (window as any).__dev = { findPath };
-show('menu');
+
+async function boot() {
+  const bar = $('loading-bar');
+  assets = await loadAssets((d, t) => { bar.style.width = `${Math.round(100 * d / t)}%`; });
+  sprites = buildSprites(assets);
+  if (assets.tex.wood) { $('panel').style.backgroundImage = "url('art/tex/wood.webp')"; for (const b of document.querySelectorAll('.menu-box, .briefing-box') as NodeListOf<HTMLElement>) b.style.backgroundImage = "linear-gradient(rgba(28,20,12,0.82), rgba(28,20,12,0.82)), url('art/tex/wood.webp')"; }
+  $('loading').classList.add('hidden');
+  (window as any).__ready = true;
+  show('menu');
+}
+boot();
