@@ -327,6 +327,7 @@ export class UI {
         <button data-act="save">Save game</button><button data-act="load">Load game</button>
         <button data-act="territory">${this.showTerritory ? 'Hide' : 'Show'} territory</button>
         <button data-act="sound">Sound: ${(window as any).__audioEnabled === false ? 'off' : 'on'}</button>
+        <button data-act="music">Music: ${(window as any).__musicEnabled === false ? 'off' : 'on'}</button>
         <button data-act="quit">Quit to main menu</button></div>`;
       el.innerHTML = html;
     }
@@ -345,6 +346,7 @@ export class UI {
       if (a === 'save') this.onSave?.(); else if (a === 'load') this.onLoad?.(); else if (a === 'quit') this.onQuit?.();
       else if (a === 'territory') { this.showTerritory = !this.showTerritory; this.renderTab(); }
       else if (a === 'sound') { (window as any).__toggleAudio?.(); this.renderTab(); }
+      else if (a === 'music') { (window as any).__toggleMusic?.(); this.renderTab(); }
       else if (a === 'demolish' && this.sel.house) { g.demolishHouse(this.sel.house); this.clearSelection(); }
       else if (a === 'halt') { for (const gid of this.sel.groups) { const grp = g.group(gid); if (grp) orderHalt(g, grp); } }
       else if (a === 'split') { const grp = g.group(this.sel.groups[0]); if (grp) { const n = splitGroup(g, grp); if (n) this.selectGroup(n); } }

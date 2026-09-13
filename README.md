@@ -44,6 +44,7 @@ deploys `main` to GitHub Pages (enable *Settings → Pages → Source: GitHub Ac
 | Cancel / deselect | right-click / Esc |
 | Speed | 1 2 3 keys or the buttons; space pauses |
 | Halt group | H |
+| Sound / music | toggles in the Menu tab |
 
 ## Development
 

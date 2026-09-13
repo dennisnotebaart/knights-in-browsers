@@ -18,6 +18,8 @@ const sprites = buildSprites();
 const audio = new Audio();
 (window as any).__audioEnabled = true;
 (window as any).__toggleAudio = () => { audio.enabled = !audio.enabled; (window as any).__audioEnabled = audio.enabled; };
+(window as any).__musicEnabled = true;
+(window as any).__toggleMusic = () => { audio.musicOn = !audio.musicOn; (window as any).__musicEnabled = audio.musicOn; };
 
 let game: Game | null = null;
 let renderer: Renderer | null = null;
@@ -26,6 +28,7 @@ let mission: Mission | null = null;
 let raf = 0;
 let acc = 0, lastT = 0;
 let outcomeShown = false;
+let outcomeFrames = 0;
 
 function show(id: string) {
   for (const s of document.querySelectorAll('.screen')) s.classList.add('hidden');
@@ -57,14 +60,15 @@ function startMission(m: Mission, state?: GameState) {
   game.onMessage = msg => { if (msg.kind === 'alert') audio.play('alarm'); else if (msg.kind === 'good') audio.play('message'); };
   const canvas = $('c') as HTMLCanvasElement;
   if (!renderer) renderer = new Renderer(canvas, game, sprites); else renderer.setGame(game);
-  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { stopLoop(); show('menu'); }; } else ui.setGame(game);
+  if (!ui) { ui = new UI(game, renderer, sprites); ui.onSave = saveGame; ui.onLoad = loadGame; ui.onQuit = () => { stopLoop(); audio.stopMusic(); show('menu'); }; } else ui.setGame(game);
   ui.setSpeed(1); ui.setTab('build');
-  outcomeShown = false;
+  outcomeShown = false; outcomeFrames = 0;
   show('game');
   resize();
   renderer.centerOn(m.camera.x, m.camera.y);
   if (!state) { game.msg(`Mission: ${m.name}. ${m.objectives[0]?.text ?? ''}`, 'info'); }
   startLoop();
+  audio.startMusic();
   (window as any).game = game; (window as any).ui = ui; (window as any).renderer = renderer;
 }
 
@@ -92,7 +96,7 @@ function frame(t: number) {
     if (n >= 40) acc = 0;
   }
   renderer.render(ui.sel, ui.place, ui.showTerritory);
-  if (game.s.outcome !== 'playing' && !outcomeShown && game.s.tick - game.s.outcomeTick > 25) { outcomeShown = true; showOutcome(); }
+  if (game.s.outcome !== 'playing' && !outcomeShown && ++outcomeFrames > 75) { outcomeShown = true; showOutcome(); }
 }
 
 function showOutcome() {
@@ -112,6 +116,7 @@ function showOutcome() {
   $('btn-next').onclick = () => { if (next) showBriefing(next); };
   $('btn-retry').onclick = () => { if (mission) showBriefing(mission); };
   stopLoop();
+  audio.stopMusic();
   show('outcome');
 }
 

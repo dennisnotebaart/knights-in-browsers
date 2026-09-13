@@ -300,6 +300,37 @@ export class Game {
       for (const k of Object.keys(s.pairCooldown)) if (s.pairCooldown[k] < s.tick) delete s.pairCooldown[k];
     }
     if (s.tick % 20 === 0 && s.outcome === 'playing') this.checkObjectives();
+    if (s.tick % 200 === 100) this.advisor();
+  }
+
+  /** Periodic warnings that the original game's advisor would give. */
+  advisor() {
+    const s = this.s, p = s.player;
+    const store = s.houses.find(h => h.owner === p && h.state === 'done' && h.type === 'storehouse');
+    if (store) {
+      const sd = this.doorPos(store);
+      for (const h of s.houses) {
+        if (h.owner !== p || h.state !== 'building' || (h as any).warnedRoad) continue;
+        if (h.delivered.wood + h.delivered.stone > 0) continue;
+        const d = this.doorPos(h);
+        const path = findPath(this.map, sd.x, sd.y, d.x, d.y, this.roadWalkable, 4000, this.walkable);
+        if (!path) { (h as any).warnedRoad = true; this.msg(`${HOUSE_DEFS[h.type].name} is not connected to the storehouse by road.`, 'warn', h.x, h.y); }
+      }
+    }
+    for (const h of s.houses) {
+      if (h.owner !== p || h.state !== 'done') continue;
+      if (h.type === 'school' && h.queue.length && this.stockGet(h.stock, 'gold') === 0 && !h.working && (s.tick - ((h as any).warnedGold ?? -9999)) > 3000) {
+        const anyGold = s.houses.some(x => x.owner === p && x.state === 'done' && this.stockGet(x.stock, 'gold') + this.stockGet(x.out, 'gold') > 0 && x !== h);
+        if (!anyGold) { (h as any).warnedGold = s.tick; this.msg('The school has no gold to train citizens. Mine gold ore and smelt it.', 'warn', h.x, h.y); }
+      }
+    }
+    const hungry = s.units.filter(u => !u.dead && u.owner === p && u.task.kind !== 'soldier' && u.condition < 0.3);
+    if (hungry.length >= 3 && (s.tick - ((s as any).warnedHunger ?? -9999)) > 3000) {
+      const inn = s.houses.find(h => h.owner === p && h.state === 'done' && h.type === 'inn');
+      const food = inn && FOOD.some(f => this.stockGet(inn.stock, f) > 0);
+      if (!inn) { (s as any).warnedHunger = s.tick; this.msg('Your people are hungry and there is no inn!', 'alert'); }
+      else if (!food) { (s as any).warnedHunger = s.tick; this.msg('Your people are hungry and the inn has no food!', 'alert', inn.x, inn.y); }
+    }
   }
 
   // ---------- growth of trees / fields ----------
